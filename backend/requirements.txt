@@ -14,3 +14,10 @@ lxml
 yfinance
 pandas
 pytest
+pytest-asyncio
+pytest-cov
+pytest-mock
+pytest-celery
+pytest-httpx
+faker
+freezegun
