@@ -73,6 +73,7 @@ jobs:
         DATABASE_URL: postgresql+psycopg2://ci:ci_pass@localhost:5432/ci_db
         REDIS_URL: redis://localhost:6379/0
         SEC_USER_AGENT: "CI/1.0 ci@example.com"
+        PYTHONPATH: .
       run: |
         alembic upgrade head
     
