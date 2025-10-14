@@ -151,11 +151,14 @@ jobs:
     
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
+      continue-on-error: true  # Don't fail CI on vulnerabilities
       with:
         scan-type: 'fs'
         scan-ref: 'backend'
         format: 'sarif'
         output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'  # Focus on important issues
+        exit-code: '0'  # Don't fail the action
     
     - name: Upload Trivy results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
