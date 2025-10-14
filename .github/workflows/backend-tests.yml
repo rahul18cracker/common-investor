@@ -80,7 +80,8 @@ jobs:
     - name: Run unit tests
       working-directory: backend
       env:
-        DATABASE_URL: postgresql+psycopg2://ci:ci_pass@localhost:5432/ci_db
+        # DO NOT set DATABASE_URL here - let conftest.py set it to SQLite
+        # Unit tests use in-memory SQLite for speed and isolation
         REDIS_URL: redis://localhost:6379/0
         SEC_USER_AGENT: "CI/1.0 ci@example.com"
         PYTHONPATH: .

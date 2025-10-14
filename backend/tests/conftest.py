@@ -10,23 +10,27 @@ This module provides:
 """
 
 import os
-import pytest
-from typing import Generator
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import StaticPool
-from fastapi.testclient import TestClient
 
-# Set test environment variables before importing app modules
+# CRITICAL: Set test environment variables BEFORE any imports
+# This must happen before app modules are imported to prevent
+# session.py from creating a PostgreSQL engine in CI
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["REDIS_URL"] = "redis://localhost:6379/15"  # Test Redis DB
 os.environ["SEC_USER_AGENT"] = "TestCommonInvestor/1.0 test@example.com"
 os.environ["TESTING"] = "1"
 
-from app.main import app
-from app.db.models import Base
-from app.db import session as db_module
-from app.workers.celery_app import celery_app
+# flake8: noqa: E402 (imports below env setup are intentional)
+import pytest  # noqa: E402
+from typing import Generator  # noqa: E402
+from sqlalchemy import create_engine, event  # noqa: E402
+from sqlalchemy.orm import sessionmaker, Session  # noqa: E402
+from sqlalchemy.pool import StaticPool  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+
+from app.main import app  # noqa: E402
+from app.db.models import Base  # noqa: E402
+from app.db import session as db_module  # noqa: E402
+from app.workers.celery_app import celery_app  # noqa: E402
 
 
 # =============================================================================
@@ -109,17 +113,18 @@ def override_execute(db_session):
 # =============================================================================
 
 @pytest.fixture(scope="function")
-def client(db_session, monkeypatch) -> TestClient:
+def client(test_engine) -> TestClient:
     """
-    FastAPI test client with monkeypatched execute function.
-    """
-    # Create a custom execute that uses our test session
-    def test_execute(sql: str, **params):
-        from sqlalchemy import text
-        return db_session.execute(text(sql), params)
+    FastAPI test client using the test database engine.
     
-    # Monkeypatch the execute function
-    monkeypatch.setattr(db_module, 'execute', test_execute)
+    Note: We don't need to monkeypatch execute() anymore because:
+    1. Environment variables are set before app imports
+    2. session.py creates a SQLite engine when TESTING=1
+    3. All tables are created by test_engine fixture
+    """
+    # Ensure the app's engine is using our test engine
+    # This is critical - we need to replace the engine that was created during import
+    db_module.engine = test_engine
     
     with TestClient(app) as test_client:
         yield test_client
