@@ -113,21 +113,26 @@ def override_execute(db_session):
 # =============================================================================
 
 @pytest.fixture(scope="function")
-def client(test_engine) -> TestClient:
+def client(db_session) -> TestClient:
     """
-    FastAPI test client using the test database engine.
+    FastAPI test client with database session properly injected.
     
-    Note: We don't need to monkeypatch execute() anymore because:
-    1. Environment variables are set before app imports
-    2. session.py creates a SQLite engine when TESTING=1
-    3. All tables are created by test_engine fixture
+    This ensures that both ORM operations (db_session.add/commit) and
+    raw SQL operations (execute()) use the same database connection,
+    allowing tests to see data created by fixtures.
+    
+    Uses thread-local session injection so all execute() calls throughout
+    the codebase use the test session automatically.
     """
-    # Ensure the app's engine is using our test engine
-    # This is critical - we need to replace the engine that was created during import
-    db_module.engine = test_engine
+    # Set the test session in thread-local storage
+    db_module.set_test_session(db_session)
     
-    with TestClient(app) as test_client:
-        yield test_client
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        # Clear the test session
+        db_module.clear_test_session()
 
 
 # =============================================================================
