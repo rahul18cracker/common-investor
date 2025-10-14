@@ -369,7 +369,7 @@ class TestIngestionIntegration:
             json={"0": {"cik_str": 789019, "ticker": "MSFT"}}
         )
         
-        with pytest.raises(KeyError):
+        with pytest.raises(ValueError, match="No CIK found for INVALID_TICKER"):
             ingest_companyfacts_richer_by_ticker("INVALID_TICKER")
     
     def test_ingest_company_api_failure(self, db_session, httpx_mock):

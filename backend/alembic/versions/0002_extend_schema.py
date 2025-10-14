@@ -132,4 +132,9 @@ def downgrade():
     op.drop_table('metrics_yearly')
     op.drop_table('statement_cf')
     op.drop_table('statement_bs')
+    
+    # Remove columns added to statement_is
+    for col in ['shares_diluted', 'net_income', 'taxes', 'interest_expense', 'ebit', 'depreciation', 'rnd', 'sga', 'gross_profit', 'cogs']:
+        op.drop_column('statement_is', col)
+    
     op.drop_table('fact')

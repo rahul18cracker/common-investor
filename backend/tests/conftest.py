@@ -93,7 +93,8 @@ def db_session(test_engine) -> Generator[Session, None, None]:
         
         # Delete all data in reverse order to handle foreign keys
         for table in reversed(Base.metadata.sorted_tables):
-            session.execute(table.delete())
+            result = session.execute(table.delete())
+            result.close()  # Close cursor before committing (SQLite requirement)
         session.commit()
         
         session.close()

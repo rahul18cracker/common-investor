@@ -1,5 +1,5 @@
 from app.metrics.compute import owner_earnings_series, roic_series, coverage_series, revenue_eps_series
-from app.db import session as sess
+from app.metrics import compute
 
 def test_owner_earnings_series(monkeypatch):
     rows = [
@@ -10,7 +10,7 @@ def test_owner_earnings_series(monkeypatch):
         class R: 
             def fetchall(self): return rows
         return R()
-    monkeypatch.setattr(sess, "execute", fake_execute)
+    monkeypatch.setattr(compute, "execute", fake_execute)
     ser = owner_earnings_series("0000000001")
     assert len(ser) == 2
     assert ser[0]["owner_earnings"] == 800.0
@@ -24,7 +24,7 @@ def test_roic_series(monkeypatch):
         class R:
             def fetchall(self): return rows
         return R()
-    monkeypatch.setattr(sess, "execute", fake_execute)
+    monkeypatch.setattr(compute, "execute", fake_execute)
     roic = roic_series("0000000001")
     assert len(roic) == 1
     assert roic[0]["roic"] is not None
@@ -38,7 +38,7 @@ def test_coverage_series(monkeypatch):
         class R:
             def fetchall(self): return rows
         return R()
-    monkeypatch.setattr(sess, "execute", fake_execute)
+    monkeypatch.setattr(compute, "execute", fake_execute)
     cov = coverage_series("0000000001")
     assert cov[0]["coverage"] == 5.0
 
@@ -51,7 +51,7 @@ def test_revenue_eps_series(monkeypatch):
         class R:
             def fetchall(self): return rows
         return R()
-    monkeypatch.setattr(sess, "execute", fake_execute)
+    monkeypatch.setattr(compute, "execute", fake_execute)
     ser = revenue_eps_series("0000000001")
     assert ser[0]["revenue"] == 1000.0
     assert ser[1]["eps"] == 6.0
