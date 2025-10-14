@@ -150,8 +150,14 @@ class TestTickerMap:
 class TestCompanyFacts:
     """Test company facts retrieval from SEC API."""
     
-    def test_company_facts_success(self, mock_httpx_client, mock_sec_company_facts):
+    def test_company_facts_success(self, httpx_mock, mock_sec_company_facts):
         """Test successful company facts retrieval."""
+        # Mock only the company facts endpoint (not company_tickers)
+        httpx_mock.add_response(
+            url="https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json",
+            json=mock_sec_company_facts
+        )
+        
         cik = 789019
         result = company_facts(cik)
         

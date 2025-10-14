@@ -1,3 +1,14 @@
+"""Initial database schema for Common Investor application.
+
+Creates core tables:
+- company: Company master data (CIK, ticker, name, sector, industry)
+- filing: SEC filings metadata (form type, accession, period)
+- statement_is: Income statement data (revenue, EPS)
+
+Revision ID: 0001_init
+Revises: None
+Create Date: 2024
+"""
 from alembic import op
 import sqlalchemy as sa
 
@@ -5,6 +16,7 @@ revision = '0001_init'
 down_revision = None
 branch_labels = None
 depends_on = None
+
 
 def upgrade():
     op.create_table('company',

@@ -66,34 +66,40 @@ def db_session(test_engine) -> Generator[Session, None, None]:
     Create a new database session for each test.
     
     Function-scoped to ensure test isolation.
-    Automatically rolls back after each test.
+    Cleans up all data after each test for true isolation.
+    
+    Note: Automatically sets up the thread-local session so execute() 
+    calls work correctly in tests.
     """
-    connection = test_engine.connect()
-    transaction = connection.begin()
+    # Ensure the app's engine points to our test engine
+    db_module.engine = test_engine
     
     SessionLocal = sessionmaker(
         autocommit=False,
         autoflush=False,
-        bind=connection
+        bind=test_engine
     )
     
     session = SessionLocal()
     
-    # Enable foreign key constraints for SQLite
-    @event.listens_for(session, "after_transaction_end")
-    def restart_savepoint(sess, trans):
-        if trans.nested and not trans._parent.nested:
-            sess.expire_all()
-            sess.begin_nested()
+    # Set up thread-local session for execute() calls
+    db_module.set_test_session(session)
     
-    session.begin_nested()
-    
-    yield session
-    
-    # Rollback and cleanup
-    session.close()
-    transaction.rollback()
-    connection.close()
+    try:
+        yield session
+    finally:
+        # Cleanup - delete all data from all tables
+        session.rollback()  # Rollback any pending transactions
+        
+        # Delete all data in reverse order to handle foreign keys
+        for table in reversed(Base.metadata.sorted_tables):
+            session.execute(table.delete())
+        session.commit()
+        
+        session.close()
+        
+        # Clear thread-local session
+        db_module.clear_test_session()
 
 
 @pytest.fixture(scope="function")
@@ -113,7 +119,7 @@ def override_execute(db_session):
 # =============================================================================
 
 @pytest.fixture(scope="function")
-def client(db_session) -> TestClient:
+def client(test_engine, db_session) -> TestClient:
     """
     FastAPI test client with database session properly injected.
     
@@ -123,7 +129,12 @@ def client(db_session) -> TestClient:
     
     Uses thread-local session injection so all execute() calls throughout
     the codebase use the test session automatically.
+    
+    Note: test_engine dependency ensures tables are created before tests run.
     """
+    # Ensure the app's engine points to our test engine with tables
+    db_module.engine = test_engine
+    
     # Set the test session in thread-local storage
     db_module.set_test_session(db_session)
     

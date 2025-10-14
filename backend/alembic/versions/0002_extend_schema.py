@@ -1,3 +1,19 @@
+"""Extend schema with financial statements, metrics, valuations, and alerts.
+
+Adds:
+- fact table for XBRL tag storage
+- statement_bs (balance sheet), statement_cf (cash flow)
+- Extended statement_is with additional income statement fields
+- metrics_yearly for computed financial ratios (ROIC, CAGR, etc.)
+- valuation_scenario for Rule #1 valuation calculations
+- meaning_note for Four Ms analysis notes
+- alert_rule for price/metric alerts
+- price_snapshot for historical price tracking
+
+Revision ID: 0002_extend_schema
+Revises: 0001_init
+Create Date: 2024
+"""
 from alembic import op
 import sqlalchemy as sa
 
@@ -5,6 +21,7 @@ revision = '0002_extend_schema'
 down_revision = '0001_init'
 branch_labels = None
 depends_on = None
+
 
 def upgrade():
     op.create_table('fact',

@@ -57,8 +57,11 @@ class ValuationRequest(BaseModel):
 
 @router.post("/company/{ticker}/valuation")
 def run_valuation(ticker: str, body: ValuationRequest):
-    res = run_default_scenario(ticker, mos_pct=body.mos_pct, g_override=body.g, pe_cap=body.pe_cap or 20, discount=body.discount or 0.15)
-    return res
+    try:
+        res = run_default_scenario(ticker, mos_pct=body.mos_pct, g_override=body.g, pe_cap=body.pe_cap or 20, discount=body.discount or 0.15)
+        return res
+    except ValueError as e:
+        raise HTTPException(404, detail=str(e))
 
 @router.get("/company/{ticker}/export/metrics.csv", response_class=PlainTextResponse)
 def export_metrics_csv(ticker: str):

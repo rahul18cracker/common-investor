@@ -53,9 +53,15 @@ def upsert_company(cik: str, ticker: str, name: str | None = None):
     """, cik=cik, ticker=ticker, name=name)
 
 def upsert_filing(cik: str, form: str | None, accession: str | None, period_end: str | None):
+    # Convert date objects to ISO format strings for SQLite compatibility
+    from datetime import date
+    if isinstance(period_end, date):
+        period_end = period_end.isoformat()
+    
+    # For SQLite, skip CAST and just insert as string (SQLite doesn't enforce types)
     row = execute("""
         INSERT INTO filing (cik, form, accession, period_end)
-        VALUES (:cik, :form, :accession, CAST(:period_end AS date))
+        VALUES (:cik, :form, :accession, :period_end)
         ON CONFLICT (accession) DO NOTHING
         RETURNING id
     """, cik=cik, form=form, accession=accession, period_end=period_end).first()

@@ -47,7 +47,11 @@ def execute(sql: str, **params):
     # Check if we have a test session set
     test_session = getattr(_test_session, 'value', None)
     if test_session is not None:
-        return test_session.execute(text(sql), params)
+        # Use the test session directly - it handles its own transaction management
+        result = test_session.execute(text(sql), params)
+        # Flush to ensure writes are visible within the test
+        test_session.flush()
+        return result
 
     # Normal execution using engine
     with engine.begin() as conn:
