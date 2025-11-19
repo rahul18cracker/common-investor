@@ -82,7 +82,19 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 # Access containers
 docker compose exec api bash
 docker compose exec ui bash
+
+# Install experimental research agent dependencies (optional)
+cd backend
+pip install -r requirements-research-agent.txt
 ```
+
+### 📦 Dependency Management
+
+The project uses **separate requirements files** for modularity:
+- `backend/requirements.txt` - Core backend dependencies (FastAPI, SQLAlchemy, Celery)
+- `backend/requirements-research-agent.txt` - Experimental LLM research agent (LangChain, DeepAgents)
+
+See [RUNBOOK - Dependency Management](docs/RUNBOOK.md#-dependency-management) for detailed installation instructions.
 
 ## 📊 Sample Analysis Output
 

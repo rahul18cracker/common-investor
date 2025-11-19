@@ -415,6 +415,86 @@ open http://localhost:9001  # MinIO console
 
 ---
 
+## 📦 Dependency Management
+
+### Research Agent Experimental Dependencies
+
+The Common Investor platform uses **separate requirements files** to isolate experimental research agent dependencies from core backend dependencies. This approach provides:
+
+- **Clear separation** between stable backend and experimental agent code
+- **Independent versioning** of dependencies to avoid conflicts
+- **Optional installation** for experimentation without breaking production
+- **Easy promotion path** when research agent moves to production
+
+#### Requirements Files Structure
+
+```
+backend/
+├── requirements.txt                    # Core backend dependencies (FastAPI, SQLAlchemy, Celery)
+├── requirements-research-agent.txt     # Research agent experimental dependencies (LangChain, DeepAgents)
+└── requirements-dev.txt                # Development tools (pytest, black, mypy) [future]
+```
+
+#### Installation Instructions
+
+**Option 1: Install Core Backend Only**
+```bash
+# For standard backend development
+cd backend
+pip install -r requirements.txt
+```
+
+**Option 2: Install Backend + Research Agent**
+```bash
+# For research agent experimentation
+cd backend
+pip install -r requirements.txt
+pip install -r requirements-research-agent.txt
+```
+
+**Option 3: Docker with Research Agent**
+```bash
+# Build with research agent dependencies
+docker compose build --build-arg INSTALL_RESEARCH_AGENT=true
+
+# Standard build (without research agent)
+docker compose build
+```
+
+#### Research Agent Dependencies
+
+Key packages in `requirements-research-agent.txt`:
+- **langchain** - LLM application framework
+- **phi-ai** - DeepAgents orchestration framework
+- **openai** - OpenAI API client
+- **tiktoken** - Token counting for cost tracking
+- **jinja2** - Template rendering for reports
+- **tenacity** - Retry logic for API resilience
+
+#### Production Promotion Path
+
+When research agent moves from experimental to production:
+
+1. **Merge dependencies** into main requirements.txt:
+   ```bash
+   cat backend/requirements-research-agent.txt >> backend/requirements.txt
+   ```
+
+2. **Or keep separate** for modularity:
+   - Update Dockerfile to install both by default
+   - Maintain separate files for clear dependency tracking
+
+#### Dependency Conflicts
+
+If you encounter version conflicts between backend and research agent dependencies:
+
+1. **Identify conflict**: Run `pip check` after installation
+2. **Resolve in isolation**: Test research agent in separate virtual environment
+3. **Update constraints**: Pin conflicting packages to compatible versions
+4. **Document resolution**: Add comments in requirements files explaining version pins
+
+---
+
 ## 👨‍💻 Development
 
 ### Running Tests

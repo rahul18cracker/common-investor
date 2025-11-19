@@ -79,8 +79,10 @@ common-investor/backend/app/
 **Goal:** Prove deepagents works for qualitative analysis
 
 **Key Tasks:**
-1. Setup experimental folder structure
-2. Install dependencies (langchain, deepagents, openai, tiktoken)
+1. Setup experimental folder structure ✅ **COMPLETE**
+2. Install dependencies (see `backend/requirements-research-agent.txt`)
+   - langchain, phi-ai (deepagents), openai, tiktoken, jinja2, tenacity
+   - **Note:** Dependencies are isolated in separate requirements file (see [Dependency Management](#dependency-management) below)
 3. Build basic SEC filing retrieval tool
 4. Create agent configuration with GPT-4
 5. Implement research workflow
@@ -233,6 +235,74 @@ research_queue_length = Gauge('research_agent_queue_length')
 - [ ] Monitoring/alerting configured
 - [ ] Load tests passing
 - [ ] Production deployment complete
+
+---
+
+## 📦 Dependency Management
+
+### Separate Requirements Files Strategy
+
+The research agent uses **isolated dependency files** to prevent conflicts with core backend dependencies and enable independent experimentation.
+
+#### Files Structure
+```
+backend/
+├── requirements.txt                    # Core backend (FastAPI, SQLAlchemy, Celery)
+├── requirements-research-agent.txt     # Research agent experimental (LangChain, DeepAgents)
+└── requirements-dev.txt                # Development tools [future]
+```
+
+#### Rationale for Separation
+
+**✅ Benefits:**
+- Clear separation between stable backend and experimental agent
+- Independent versioning prevents dependency conflicts
+- Optional installation - experiment without breaking production
+- Easy promotion path to production when ready
+- Works well with Docker conditional installs
+
+**❌ Why NOT a single requirements.txt:**
+- Version conflicts (e.g., LangChain dependencies may conflict with FastAPI stack)
+- Forces production to install experimental dependencies
+- Can't isolate experimental failures
+- Pollutes production environment
+
+#### Installation
+
+**Development (Local):**
+```bash
+# Core backend only
+pip install -r backend/requirements.txt
+
+# Core + Research Agent
+pip install -r backend/requirements.txt
+pip install -r backend/requirements-research-agent.txt
+```
+
+**Docker (Phase 2 Integration):**
+```dockerfile
+# Conditional installation
+ARG INSTALL_RESEARCH_AGENT=false
+RUN pip install -r requirements.txt && \
+    if [ "$INSTALL_RESEARCH_AGENT" = "true" ]; then \
+        pip install -r requirements-research-agent.txt; \
+    fi
+```
+
+#### Promotion to Production
+
+When research agent is production-ready (Phase 4):
+
+**Option A: Merge into main requirements**
+```bash
+cat backend/requirements-research-agent.txt >> backend/requirements.txt
+```
+
+**Option B: Keep separate (recommended for modularity)**
+- Update Dockerfile to install both by default
+- Maintain clear dependency tracking
+
+For detailed installation instructions, see [RUNBOOK - Dependency Management](../RUNBOOK.md#-dependency-management).
 
 ---
 
