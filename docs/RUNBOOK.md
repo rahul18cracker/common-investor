@@ -242,6 +242,42 @@ GET /api/v1/company/{ticker}
 POST /api/v1/company/{ticker}/ingest
 ```
 
+#### Database Seeding
+```bash
+# List all companies in database
+GET /api/v1/companies
+
+# Check seeding status (how many companies loaded)
+GET /api/v1/seed/status
+
+# Seed database with default tickers (MSFT, AAPL, GOOGL, KO, PG, JNJ, V, BRK-B, CAT, COST, HD, UNH)
+POST /api/v1/seed
+
+# Seed database with specific tickers
+POST /api/v1/seed
+Content-Type: application/json
+{"tickers": ["TSLA", "AMD", "NVDA"]}
+```
+
+**Example seeding workflow:**
+```bash
+# Check current status
+curl http://localhost:8080/api/v1/seed/status | jq
+
+# Seed with default tickers (runs in background)
+curl -X POST http://localhost:8080/api/v1/seed | jq
+
+# Seed with custom tickers
+curl -X POST http://localhost:8080/api/v1/seed \
+  -H "Content-Type: application/json" \
+  -d '{"tickers": ["TSLA", "AMD", "NVDA"]}' | jq
+
+# List all loaded companies
+curl http://localhost:8080/api/v1/companies | jq
+```
+
+**Note:** Auto-seeding runs on first startup if `AUTO_SEED=true` (default) and the database is empty. Set `AUTO_SEED=false` in `.env` to disable.
+
 #### Financial Analysis
 ```bash
 # Growth metrics (CAGR, ratios)
