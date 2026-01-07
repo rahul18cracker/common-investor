@@ -48,6 +48,17 @@ logs/
 .coverage
 htmlcov/
 .pytest_cache/
+coverage.xml
+coverage.json
+
+# Celery
+celerybeat-schedule
+celerybeat-schedule.db
+celerybeat.pid
+
+# Virtual environments (additional patterns)
+venv-*/
+.venv/
 
 # Build artifacts
 dist/
