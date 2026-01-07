@@ -136,13 +136,14 @@ class TestSeedEndpoints:
 class TestMetricsEndpoints:
     """Test metrics and timeseries endpoints."""
 
+    @patch("app.api.v1.routes.get_company_cik")
     @patch("app.api.v1.routes.latest_owner_earnings_growth")
     @patch("app.api.v1.routes.latest_debt_to_equity")
     @patch("app.api.v1.routes.roic_average")
     @patch("app.api.v1.routes.compute_growth_metrics")
-    def test_get_metrics_success(self, mock_growth, mock_roic, mock_debt, mock_fcf, mock_execute):
+    def test_get_metrics_success(self, mock_growth, mock_roic, mock_debt, mock_fcf, mock_cik):
         """Test successful metrics retrieval."""
-        mock_execute.return_value.first.return_value = ("0000789019",)
+        mock_cik.return_value = "0000789019"
         mock_growth.return_value = {"eps_cagr_5y": 0.15, "rev_cagr_5y": 0.12}
         mock_roic.return_value = 0.25
         mock_debt.return_value = 0.5
@@ -155,19 +156,21 @@ class TestMetricsEndpoints:
         assert result["growths"]["eps_cagr_5y"] == 0.15
         assert result["roic_avg_10y"] == 0.25
 
-    def test_get_metrics_not_found(self, mock_execute):
+    @patch("app.api.v1.routes.get_company_cik")
+    def test_get_metrics_not_found(self, mock_cik):
         """Test 404 when company not found."""
-        mock_execute.return_value.first.return_value = None
+        mock_cik.side_effect = HTTPException(404, detail="Company not found. Ingest first.")
         
         from app.api.v1.routes import get_metrics
         with pytest.raises(HTTPException) as exc:
             get_metrics("INVALID")
         assert exc.value.status_code == 404
 
+    @patch("app.api.v1.routes.get_company_cik")
     @patch("app.api.v1.routes.timeseries_all")
-    def test_get_timeseries_success(self, mock_timeseries, mock_execute):
+    def test_get_timeseries_success(self, mock_timeseries, mock_cik):
         """Test successful timeseries retrieval."""
-        mock_execute.return_value.first.return_value = ("0000789019",)
+        mock_cik.return_value = "0000789019"
         mock_timeseries.return_value = {"revenue": [{"fy": 2023, "value": 211915}]}
         
         from app.api.v1.routes import get_timeseries
@@ -175,9 +178,10 @@ class TestMetricsEndpoints:
         
         assert "revenue" in result
 
-    def test_get_timeseries_not_found(self, mock_execute):
+    @patch("app.api.v1.routes.get_company_cik")
+    def test_get_timeseries_not_found(self, mock_cik):
         """Test 404 when company not found."""
-        mock_execute.return_value.first.return_value = None
+        mock_cik.side_effect = HTTPException(404, detail="Company not found. Ingest first.")
         
         from app.api.v1.routes import get_timeseries
         with pytest.raises(HTTPException) as exc:
@@ -213,10 +217,11 @@ class TestValuationEndpoints:
             run_valuation("INVALID", body)
         assert exc.value.status_code == 404
 
+    @patch("app.api.v1.routes.get_company_cik")
     @patch("app.api.v1.routes.compute_growth_metrics")
-    def test_export_metrics_csv(self, mock_growth, mock_execute):
+    def test_export_metrics_csv(self, mock_growth, mock_cik):
         """Test CSV export of metrics."""
-        mock_execute.return_value.first.return_value = ("0000789019",)
+        mock_cik.return_value = "0000789019"
         mock_growth.return_value = {"eps_cagr_5y": 0.15, "rev_cagr_5y": 0.12}
         
         from app.api.v1.routes import export_metrics_csv
@@ -293,12 +298,13 @@ class TestAlertEndpoints:
 class TestFourMsEndpoints:
     """Test Four Ms analysis endpoints."""
 
+    @patch("app.api.v1.routes.get_company_cik")
     @patch("app.api.v1.routes.compute_margin_of_safety_recommendation")
     @patch("app.api.v1.routes.compute_management")
     @patch("app.api.v1.routes.compute_moat")
-    def test_get_fourm_analysis_success(self, mock_moat, mock_mgmt, mock_mos, mock_execute):
+    def test_get_fourm_analysis_success(self, mock_moat, mock_mgmt, mock_mos, mock_cik):
         """Test successful Four Ms analysis."""
-        mock_execute.return_value.first.return_value = ("0000789019",)
+        mock_cik.return_value = "0000789019"
         mock_moat.return_value = {"roic_avg": 0.25, "score": 8}
         mock_mgmt.return_value = {"reinvestment_rate": 0.7, "score": 7}
         mock_mos.return_value = {"recommended_mos": 0.5}
@@ -309,22 +315,23 @@ class TestFourMsEndpoints:
         assert result["moat"]["score"] == 8
         assert result["management"]["score"] == 7
 
-    def test_get_fourm_analysis_not_found(self, mock_execute):
+    @patch("app.api.v1.routes.get_company_cik")
+    def test_get_fourm_analysis_not_found(self, mock_cik):
         """Test 404 when company not found."""
-        mock_execute.return_value.first.return_value = None
+        mock_cik.side_effect = HTTPException(404, detail="Company not found. Ingest first.")
         
         from app.api.v1.routes import get_fourm_analysis
         with pytest.raises(HTTPException) as exc:
             get_fourm_analysis("INVALID")
         assert exc.value.status_code == 404
 
+    @patch("app.api.v1.routes.execute")
+    @patch("app.api.v1.routes.get_company_cik")
     @patch("app.api.v1.routes.get_meaning_item1")
-    def test_refresh_meaning_success(self, mock_meaning, mock_execute):
+    def test_refresh_meaning_success(self, mock_meaning, mock_cik, mock_execute):
         """Test successful meaning refresh."""
-        mock_execute.return_value.first.side_effect = [
-            ("0000789019",),
-            None,  # No existing note
-        ]
+        mock_cik.return_value = "0000789019"
+        mock_execute.return_value.first.return_value = None  # No recent note
         mock_meaning.return_value = {
             "status": "ok",
             "accession": "0001564590-23-012345",
@@ -337,10 +344,11 @@ class TestFourMsEndpoints:
         
         assert result["status"] == "ok"
 
+    @patch("app.api.v1.routes.get_company_cik")
     @patch("app.api.v1.routes.get_meaning_item1")
-    def test_refresh_meaning_not_found_filing(self, mock_meaning, mock_execute):
+    def test_refresh_meaning_not_found_filing(self, mock_meaning, mock_cik):
         """Test 404 when no 10-K filing found."""
-        mock_execute.return_value.first.return_value = ("0000789019",)
+        mock_cik.return_value = "0000789019"
         mock_meaning.return_value = {"status": "not_found"}
         
         from app.api.v1.routes import refresh_meaning_analysis
@@ -348,13 +356,13 @@ class TestFourMsEndpoints:
             refresh_meaning_analysis("MSFT")
         assert exc.value.status_code == 404
 
+    @patch("app.api.v1.routes.execute")
+    @patch("app.api.v1.routes.get_company_cik")
     @patch("app.api.v1.routes.get_meaning_item1")
-    def test_refresh_meaning_skips_recent_note(self, mock_meaning, mock_execute):
+    def test_refresh_meaning_skips_recent_note(self, mock_meaning, mock_cik, mock_execute):
         """Test that refresh skips if recent note exists."""
-        mock_execute.return_value.first.side_effect = [
-            ("0000789019",),
-            (123,),  # Existing recent note
-        ]
+        mock_cik.return_value = "0000789019"
+        mock_execute.return_value.first.return_value = ("existing_id",)  # Recent note exists
         mock_meaning.return_value = {
             "status": "ok",
             "accession": "0001564590-23-012345",
