@@ -38,19 +38,35 @@ def clear_test_session():
     _test_session.value = None
 
 
-class AutoClosingResult:
-    """Wrapper around SQLAlchemy Result that auto-closes cursor after consumption.
+class ResultWrapper:
+    """Unified wrapper for SQLAlchemy Result or pre-fetched rows.
+    
+    Handles two scenarios:
+    1. Live Result (is_fetched=False): Wraps SQLAlchemy Result, auto-closes cursor after operations
+    2. Pre-fetched data (is_fetched=True): Wraps already-fetched rows, no cursor management needed
     
     This prevents SQLite 'cannot commit - SQL statements in progress' errors
     by ensuring cursors are closed immediately after fetching data.
     """
     
-    def __init__(self, result: Result):
-        self._result = result
-        self._closed = False
+    def __init__(self, data, is_fetched=False):
+        """Initialize wrapper.
+        
+        Args:
+            data: Either a SQLAlchemy Result object or a list of pre-fetched rows
+            is_fetched: True if data is pre-fetched rows, False if it's a live Result
+        """
+        self._is_fetched = is_fetched
+        if is_fetched:
+            self._rows = data
+        else:
+            self._result = data
+            self._closed = False
     
     def first(self):
-        """Fetch first row and close cursor."""
+        """Fetch first row."""
+        if self._is_fetched:
+            return self._rows[0] if self._rows else None
         try:
             row = self._result.first()
             return row
@@ -58,7 +74,9 @@ class AutoClosingResult:
             self._close()
     
     def all(self):
-        """Fetch all rows and close cursor."""
+        """Fetch all rows."""
+        if self._is_fetched:
+            return self._rows
         try:
             rows = self._result.all()
             return rows
@@ -66,7 +84,11 @@ class AutoClosingResult:
             self._close()
     
     def one(self):
-        """Fetch exactly one row and close cursor."""
+        """Fetch exactly one row."""
+        if self._is_fetched:
+            if len(self._rows) != 1:
+                raise Exception(f"Expected 1 row, got {len(self._rows)}")
+            return self._rows[0]
         try:
             row = self._result.one()
             return row
@@ -74,7 +96,13 @@ class AutoClosingResult:
             self._close()
     
     def one_or_none(self):
-        """Fetch one row or None and close cursor."""
+        """Fetch one row or None."""
+        if self._is_fetched:
+            if len(self._rows) == 0:
+                return None
+            if len(self._rows) > 1:
+                raise Exception(f"Expected at most 1 row, got {len(self._rows)}")
+            return self._rows[0]
         try:
             row = self._result.one_or_none()
             return row
@@ -82,7 +110,10 @@ class AutoClosingResult:
             self._close()
     
     def scalar(self):
-        """Fetch first column of first row and close cursor."""
+        """Fetch first column of first row."""
+        if self._is_fetched:
+            row = self.first()
+            return row[0] if row else None
         try:
             value = self._result.scalar()
             return value
@@ -90,19 +121,19 @@ class AutoClosingResult:
             self._close()
     
     def scalars(self):
-        """Return scalars - note: caller must consume iterator."""
+        """Return scalars - only valid for live Result."""
+        if self._is_fetched:
+            raise NotImplementedError("scalars() not supported for pre-fetched data")
         return self._result.scalars()
     
     def fetchone(self):
-        """Fetch one row and close cursor."""
-        try:
-            row = self._result.fetchone()
-            return row
-        finally:
-            self._close()
+        """Fetch one row."""
+        return self.first()
     
     def fetchall(self):
-        """Fetch all rows and close cursor."""
+        """Fetch all rows."""
+        if self._is_fetched:
+            return self._rows
         try:
             rows = self._result.fetchall()
             return rows
@@ -111,7 +142,7 @@ class AutoClosingResult:
     
     def _close(self):
         """Close the underlying result cursor if not already closed."""
-        if not self._closed:
+        if not self._is_fetched and not self._closed:
             self._result.close()
             self._closed = True
     
@@ -120,7 +151,9 @@ class AutoClosingResult:
         self._close()
     
     def __iter__(self):
-        """Allow iteration - note: caller must close manually or consume fully."""
+        """Allow iteration."""
+        if self._is_fetched:
+            return iter(self._rows)
         return iter(self._result)
 
 
@@ -131,7 +164,7 @@ def execute(sql: str, **params):
     In tests, this will use the thread-local test session if set,
     otherwise it creates a new connection from the engine.
     
-    Returns an AutoClosingResult that automatically closes cursors
+    Returns a ResultWrapper that automatically closes cursors
     after fetching data, preventing SQLite commit errors.
     """
     # Check if we have a test session set
@@ -139,8 +172,8 @@ def execute(sql: str, **params):
     if test_session is not None:
         # Use the test session directly - it handles its own transaction management
         result = test_session.execute(text(sql), params)
-        # Wrap in AutoClosingResult to prevent "SQL statements in progress" errors
-        wrapped_result = AutoClosingResult(result)
+        # Wrap in ResultWrapper to prevent "SQL statements in progress" errors
+        wrapped_result = ResultWrapper(result, is_fetched=False)
         # Flush AFTER wrapping to ensure cursor can be closed if needed
         # Note: flush() itself doesn't commit, but ensures writes are visible
         test_session.flush()
@@ -156,47 +189,8 @@ def execute(sql: str, **params):
         if result.returns_rows:
             # For SELECT/RETURNING queries, fetch all rows immediately
             rows = result.fetchall()
-            # Create a mock result that holds the fetched data
-            class FetchedResult:
-                def __init__(self, rows):
-                    self._rows = rows
-                    self._index = 0
-                
-                def first(self):
-                    return self._rows[0] if self._rows else None
-                
-                def all(self):
-                    return self._rows
-                
-                def one(self):
-                    if len(self._rows) != 1:
-                        raise Exception(f"Expected 1 row, got {len(self._rows)}")
-                    return self._rows[0]
-                
-                def one_or_none(self):
-                    if len(self._rows) == 0:
-                        return None
-                    if len(self._rows) > 1:
-                        raise Exception(f"Expected at most 1 row, got {len(self._rows)}")
-                    return self._rows[0]
-                
-                def scalar(self):
-                    row = self.first()
-                    return row[0] if row else None
-                
-                def fetchone(self):
-                    return self.first()
-                
-                def fetchall(self):
-                    return self._rows
-                
-                def __iter__(self):
-                    return iter(self._rows)
-                
-                def close(self):
-                    pass  # Already fetched, nothing to close
-            
-            return FetchedResult(rows)
+            # Return wrapper with pre-fetched data
+            return ResultWrapper(rows, is_fetched=True)
         else:
-            # For INSERT/UPDATE/DELETE without RETURNING, just return None
-            return AutoClosingResult(result)
+            # For INSERT/UPDATE/DELETE without RETURNING, return live result wrapper
+            return ResultWrapper(result, is_fetched=False)
