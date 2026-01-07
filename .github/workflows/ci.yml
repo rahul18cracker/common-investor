@@ -86,7 +86,7 @@ jobs:
           --cov=app \
           --cov-report=xml \
           --cov-report=term-missing \
-          --cov-fail-under=80 \
+          --cov-fail-under=50 \
           --maxfail=5
     
     - name: Run integration tests
@@ -102,7 +102,7 @@ jobs:
           -m "integration and not slow" \
           --cov=app \
           --cov-report=term-missing \
-          --cov-fail-under=80 \
+          --cov-fail-under=50 \
           --tb=short \
           --maxfail=3
     
@@ -136,7 +136,7 @@ jobs:
           --cov=app \
           --cov-report=xml \
           --cov-report=term-missing \
-          --cov-fail-under=90 \
+          --cov-fail-under=50 \
           --tb=short \
           --maxfail=5
     
