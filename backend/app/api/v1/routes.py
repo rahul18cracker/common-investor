@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import PlainTextResponse, JSONResponse
 from pydantic import BaseModel
 from app.db.session import execute
+from app.core.utils import safe_float, safe_int, get_company_cik
 from app.workers.tasks import enqueue_ingest
 from app.metrics.compute import (
     compute_growth_metrics,
@@ -42,11 +43,11 @@ def list_companies():
         "count": len(rows),
         "companies": [
             {
-                "id": int(r[0]),
+                "id": safe_int(r[0]),
                 "cik": r[1],
                 "ticker": r[2],
                 "name": r[3],
-                "years_data": int(r[4]) if r[4] else 0,
+                "years_data": safe_int(r[4]) or 0,
             }
             for r in rows
         ],
@@ -84,7 +85,7 @@ def seed_database(body: SeedRequest, background_tasks: BackgroundTasks):
 def seed_status():
     """Check the current seeding status - how many companies are loaded"""
     count_row = execute("SELECT COUNT(*) FROM company").first()
-    company_count = int(count_row[0]) if count_row else 0
+    company_count = safe_int(count_row[0]) if count_row else 0
 
     from app.cli.seed import DEFAULT_TICKERS
 
@@ -128,16 +129,10 @@ def company_summary(ticker: str):
         "latest_is": (
             {
                 "fy": latest[0],
-                "revenue": (
-                    float(latest[1]) if latest and latest[1] is not None else None
-                ),
-                "eps_diluted": (
-                    float(latest[2]) if latest and latest[2] is not None else None
-                ),
-                "ebit": float(latest[3]) if latest and latest[3] is not None else None,
-                "net_income": (
-                    float(latest[4]) if latest and latest[4] is not None else None
-                ),
+                "revenue": safe_float(latest[1]),
+                "eps_diluted": safe_float(latest[2]),
+                "ebit": safe_float(latest[3]),
+                "net_income": safe_float(latest[4]),
             }
             if latest
             else None
@@ -147,12 +142,7 @@ def company_summary(ticker: str):
 
 @router.get("/company/{ticker}/metrics")
 def get_metrics(ticker: str):
-    row = execute(
-        "SELECT cik FROM company WHERE upper(ticker)=upper(:t)", t=ticker
-    ).first()
-    if not row:
-        raise HTTPException(404, detail="Company not found. Ingest first.")
-    cik = row[0]
+    cik = get_company_cik(ticker)
     growths = compute_growth_metrics(cik)
     roic_avg_10y = roic_average(cik, years=10)
     debt_to_equity = latest_debt_to_equity(cik)
@@ -169,12 +159,7 @@ def get_metrics(ticker: str):
 
 @router.get("/company/{ticker}/timeseries")
 def get_timeseries(ticker: str):
-    row = execute(
-        "SELECT cik FROM company WHERE upper(ticker)=upper(:t)", t=ticker
-    ).first()
-    if not row:
-        raise HTTPException(404, detail="Company not found.")
-    cik = row[0]
+    cik = get_company_cik(ticker)
     return timeseries_all(cik)
 
 
@@ -202,12 +187,7 @@ def run_valuation(ticker: str, body: ValuationRequest):
 
 @router.get("/company/{ticker}/export/metrics.csv", response_class=PlainTextResponse)
 def export_metrics_csv(ticker: str):
-    row = execute(
-        "SELECT cik FROM company WHERE upper(ticker)=upper(:t)", t=ticker
-    ).first()
-    if not row:
-        raise HTTPException(404, detail="Company not found.")
-    cik = row[0]
+    cik = get_company_cik(ticker)
     g = compute_growth_metrics(cik)
     lines = ["metric,value"] + [f"{k},{'' if v is None else v}" for k, v in g.items()]
     return "\n".join(lines)
@@ -230,7 +210,7 @@ def create_alert(ticker: str, body: AlertCreate):
     ).first()
     if not row:
         raise HTTPException(404, detail="Company not found")
-    cid = int(row[0])
+    cid = safe_int(row[0])
     execute(
         "INSERT INTO alert_rule (company_id, rule_type, threshold, enabled) VALUES (:cid, :rtype, :thr, true)",
         cid=cid,
@@ -252,9 +232,9 @@ def list_alerts(ticker: str):
     ).fetchall()
     return [
         {
-            "id": int(r[0]),
+            "id": safe_int(r[0]),
             "rule_type": r[1],
-            "threshold": float(r[2]) if r[2] is not None else None,
+            "threshold": safe_float(r[2]),
             "enabled": bool(r[3]),
         }
         for r in rows
@@ -282,12 +262,7 @@ def toggle_alert(alert_id: int, body: AlertToggle):
 @router.get("/company/{ticker}/fourm")
 def get_fourm_analysis(ticker: str):
     """Get Four Ms analysis for a company (Meaning, Moat, Management, Margin of Safety)"""
-    row = execute(
-        "SELECT cik FROM company WHERE upper(ticker)=upper(:t)", t=ticker
-    ).first()
-    if not row:
-        raise HTTPException(404, detail="Company not found. Ingest first.")
-    cik = row[0]
+    cik = get_company_cik(ticker)
 
     # Compute the Four Ms analysis
     moat_analysis = compute_moat(cik)
@@ -305,12 +280,7 @@ def get_fourm_analysis(ticker: str):
 @router.post("/company/{ticker}/fourm/meaning/refresh")
 def refresh_meaning_analysis(ticker: str):
     """Refresh meaning analysis by extracting latest Item 1 from SEC filings"""
-    row = execute(
-        "SELECT cik FROM company WHERE upper(ticker)=upper(:t)", t=ticker
-    ).first()
-    if not row:
-        raise HTTPException(404, detail="Company not found. Ingest first.")
-    cik = row[0]
+    cik = get_company_cik(ticker)
 
     # Extract Item 1 business description from latest 10-K
     meaning_data = get_meaning_item1(cik)

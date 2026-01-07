@@ -77,6 +77,62 @@ CF_TAGS = {
     "acquisitions": ["PaymentsToAcquireBusinessesNetOfCashAcquired"],
 }
 
+STATEMENT_SCHEMAS = {
+    "is": {
+        "table": "statement_is",
+        "fields": [
+            "revenue",
+            "ebit",
+            "interest_expense",
+            "taxes",
+            "net_income",
+            "eps_diluted",
+            "shares_diluted",
+        ],
+        "units": {
+            "revenue": "USD",
+            "ebit": "USD",
+            "interest_expense": "USD",
+            "taxes": "USD",
+            "net_income": "USD",
+            "eps_diluted": "USD/shares",
+            "shares_diluted": "shares",
+        },
+    },
+    "bs": {
+        "table": "statement_bs",
+        "fields": [
+            "cash",
+            "receivables",
+            "inventory",
+            "total_assets",
+            "total_liabilities",
+            "total_debt",
+            "shareholder_equity",
+        ],
+        "units": {
+            "cash": "USD",
+            "receivables": "USD",
+            "inventory": "USD",
+            "total_assets": "USD",
+            "total_liabilities": "USD",
+            "total_debt": "USD",
+            "shareholder_equity": "USD",
+        },
+    },
+    "cf": {
+        "table": "statement_cf",
+        "fields": ["cfo", "capex", "buybacks", "dividends", "acquisitions"],
+        "units": {
+            "cfo": "USD",
+            "capex": "USD",
+            "buybacks": "USD",
+            "dividends": "USD",
+            "acquisitions": "USD",
+        },
+    },
+}
+
 
 def upsert_company(cik: str, ticker: str, name: str | None = None):
     execute(
@@ -143,6 +199,34 @@ def _annual_value(units: dict, unit_key: str, fy: int) -> float | None:
     return best
 
 
+def _insert_statement(filing_id: int, fy: int, stmt_type: str, units_cache: dict):
+    """Generic statement insertion using schema configuration.
+    
+    Args:
+        filing_id: ID of the filing record
+        fy: Fiscal year
+        stmt_type: Statement type key ('is', 'bs', or 'cf')
+        units_cache: Nested dict with units data for each statement type
+    """
+    schema = STATEMENT_SCHEMAS[stmt_type]
+    table = schema["table"]
+    fields = schema["fields"]
+    units_map = schema["units"]
+    
+    # Build field values dynamically
+    values = {"filing_id": filing_id, "fy": fy}
+    for field in fields:
+        unit_key = units_map[field]
+        values[field] = _annual_value(units_cache[stmt_type][field], unit_key, fy)
+    
+    # Build SQL dynamically
+    field_names = ", ".join(["filing_id", "fy"] + fields)
+    placeholders = ", ".join([f":{name}" for name in ["filing_id", "fy"] + fields])
+    sql = f"INSERT INTO {table} ({field_names}) VALUES ({placeholders})"
+    
+    execute(sql, **values)
+
+
 def ingest_companyfacts_richer_by_ticker(ticker: str):
     t2c = ticker_map()
     cik = t2c.get(ticker.upper())
@@ -180,60 +264,7 @@ def ingest_companyfacts_richer_by_ticker(ticker: str):
             accession=f"FACTS-{cik}-{fy}",
             period_end=f"{fy}-12-31",
         )
-        # IS
-        execute(
-            """
-            INSERT INTO statement_is (filing_id, fy, revenue, ebit, interest_expense, taxes, net_income, eps_diluted, shares_diluted)
-            VALUES (:filing_id, :fy, :revenue, :ebit, :interest_expense, :taxes, :net_income, :eps_diluted, :shares_diluted)
-        """,
-            filing_id=filing_id,
-            fy=fy,
-            revenue=_annual_value(units_cache["is"]["revenue"], "USD", fy),
-            ebit=_annual_value(units_cache["is"]["ebit"], "USD", fy),
-            interest_expense=_annual_value(
-                units_cache["is"]["interest_expense"], "USD", fy
-            ),
-            taxes=_annual_value(units_cache["is"]["taxes"], "USD", fy),
-            net_income=_annual_value(units_cache["is"]["net_income"], "USD", fy),
-            eps_diluted=_annual_value(
-                units_cache["is"]["eps_diluted"], "USD/shares", fy
-            ),
-            shares_diluted=_annual_value(
-                units_cache["is"]["shares_diluted"], "shares", fy
-            ),
-        )
-        # BS
-        execute(
-            """
-            INSERT INTO statement_bs (filing_id, fy, cash, receivables, inventory, total_assets, total_liabilities, total_debt, shareholder_equity)
-            VALUES (:filing_id, :fy, :cash, :receivables, :inventory, :total_assets, :total_liabilities, :total_debt, :shareholder_equity)
-        """,
-            filing_id=filing_id,
-            fy=fy,
-            cash=_annual_value(units_cache["bs"]["cash"], "USD", fy),
-            receivables=_annual_value(units_cache["bs"]["receivables"], "USD", fy),
-            inventory=_annual_value(units_cache["bs"]["inventory"], "USD", fy),
-            total_assets=_annual_value(units_cache["bs"]["total_assets"], "USD", fy),
-            total_liabilities=_annual_value(
-                units_cache["bs"]["total_liabilities"], "USD", fy
-            ),
-            total_debt=_annual_value(units_cache["bs"]["total_debt"], "USD", fy),
-            shareholder_equity=_annual_value(
-                units_cache["bs"]["shareholder_equity"], "USD", fy
-            ),
-        )
-        # CF
-        execute(
-            """
-            INSERT INTO statement_cf (filing_id, fy, cfo, capex, buybacks, dividends, acquisitions)
-            VALUES (:filing_id, :fy, :cfo, :capex, :buybacks, :dividends, :acquisitions)
-        """,
-            filing_id=filing_id,
-            fy=fy,
-            cfo=_annual_value(units_cache["cf"]["cfo"], "USD", fy),
-            capex=_annual_value(units_cache["cf"]["capex"], "USD", fy),
-            buybacks=_annual_value(units_cache["cf"]["buybacks"], "USD", fy),
-            dividends=_annual_value(units_cache["cf"]["dividends"], "USD", fy),
-            acquisitions=_annual_value(units_cache["cf"]["acquisitions"], "USD", fy),
-        )
+        _insert_statement(filing_id, fy, "is", units_cache)
+        _insert_statement(filing_id, fy, "bs", units_cache)
+        _insert_statement(filing_id, fy, "cf", units_cache)
     return {"ticker": ticker.upper(), "cik": f"{cik:010d}", "years": years}

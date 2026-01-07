@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import List, Tuple, Optional, Dict
 from statistics import pstdev
 from app.db.session import execute
+from app.core.utils import convert_row_to_dict
 
 
 def cagr(first: float, last: float, years: int) -> Optional[float]:
@@ -11,6 +12,49 @@ def cagr(first: float, last: float, years: int) -> Optional[float]:
         return (last / first) ** (1.0 / years) - 1.0
     except Exception:
         return None
+
+
+def _calculate_window_cagr(years: List[int], values: List[Optional[float]], window_years: int) -> Optional[float]:
+    """Calculate CAGR over a sliding window of years.
+    
+    Finds the first and last non-None values within the window and computes CAGR.
+    
+    Args:
+        years: List of fiscal years (ascending order)
+        values: List of values corresponding to each year
+        window_years: Number of years for the window (e.g., 5 for 5-year CAGR)
+    
+    Returns:
+        CAGR as a decimal (e.g., 0.15 for 15%) or None if insufficient data
+    """
+    if not years or not values or len(years) != len(values):
+        return None
+    
+    last_year = years[-1]
+    first_year = max(years[0], last_year - (window_years - 1))
+    
+    # Find first non-None value in window
+    first_idx = next(
+        (i for i, (fy, v) in enumerate(zip(years, values))
+         if fy >= first_year and v is not None),
+        None,
+    )
+    
+    # Find last non-None value in window
+    last_idx = next(
+        (i for i, (fy, v) in reversed(list(enumerate(zip(years, values))))
+         if fy <= last_year and v is not None),
+        None,
+    )
+    
+    if first_idx is None or last_idx is None or last_idx <= first_idx:
+        return None
+    
+    span_years = years[last_idx] - years[first_idx]
+    if span_years <= 0:
+        return None
+    
+    return cagr(values[first_idx], values[last_idx], span_years)
 
 
 def _fetch_is_series(
@@ -51,24 +95,22 @@ def _fetch_cf_bs_for_roic(cik: str):
     """,
         cik=cik,
     ).fetchall()
-    out = []
-    for r in rows:
-        fy, cfo, capex, shares, ebit, taxes, debt, equity, cash, revenue = r
-        out.append(
-            {
-                "fy": int(fy) if fy is not None else None,
-                "cfo": float(cfo) if cfo is not None else None,
-                "capex": float(capex) if capex is not None else None,
-                "shares": float(shares) if shares is not None else None,
-                "ebit": float(ebit) if ebit is not None else None,
-                "taxes": float(taxes) if taxes is not None else None,
-                "debt": float(debt) if debt is not None else None,
-                "equity": float(equity) if equity is not None else None,
-                "cash": float(cash) if cash is not None else None,
-                "revenue": float(revenue) if revenue is not None else None,
-            }
-        )
-    return out
+    
+    fields = ['fy', 'cfo', 'capex', 'shares', 'ebit', 'taxes', 'debt', 'equity', 'cash', 'revenue']
+    type_map = {
+        'fy': int,
+        'cfo': float,
+        'capex': float,
+        'shares': float,
+        'ebit': float,
+        'taxes': float,
+        'debt': float,
+        'equity': float,
+        'cash': float,
+        'revenue': float,
+    }
+    
+    return [convert_row_to_dict(row, fields, type_map) for row in rows]
 
 
 def compute_growth_metrics(cik: str) -> Dict[str, Optional[float]]:
@@ -84,37 +126,11 @@ def compute_growth_metrics(cik: str) -> Dict[str, Optional[float]]:
     revs = [rev for _, rev, _, _ in series]
     eps = [e for _, _, e, _ in series]
 
-    def window(vals, n):
-        last_year = years[-1]
-        first_year = max(years[0], last_year - (n - 1))
-        first_idx = next(
-            (
-                i
-                for i, (fy, v) in enumerate(zip(years, vals))
-                if fy >= first_year and v is not None
-            ),
-            None,
-        )
-        last_idx = next(
-            (
-                i
-                for i, (fy, v) in reversed(list(enumerate(zip(years, vals))))
-                if fy <= last_year and v is not None
-            ),
-            None,
-        )
-        if first_idx is None or last_idx is None or last_idx <= first_idx:
-            return None
-        span_years = years[last_idx] - years[first_idx]
-        if span_years <= 0:
-            return None
-        return cagr(vals[first_idx], vals[last_idx], span_years)
-
     return {
-        "rev_cagr_5y": window(revs, 5),
-        "rev_cagr_10y": window(revs, 10),
-        "eps_cagr_5y": window(eps, 5),
-        "eps_cagr_10y": window(eps, 10),
+        "rev_cagr_5y": _calculate_window_cagr(years, revs, 5),
+        "rev_cagr_10y": _calculate_window_cagr(years, revs, 10),
+        "eps_cagr_5y": _calculate_window_cagr(years, eps, 5),
+        "eps_cagr_10y": _calculate_window_cagr(years, eps, 10),
     }
 
 
@@ -229,14 +245,10 @@ def revenue_eps_series(cik: str):
     """,
         cik=cik,
     ).fetchall()
-    return [
-        {
-            "fy": int(fy),
-            "revenue": float(rev) if rev is not None else None,
-            "eps": float(eps) if eps is not None else None,
-        }
-        for fy, rev, eps in rows
-    ]
+    
+    fields = ['fy', 'revenue', 'eps']
+    type_map = {'fy': int, 'revenue': float, 'eps': float}
+    return [convert_row_to_dict(row, fields, type_map) for row in rows]
 
 
 def roic_average(cik: str, years: int = 10) -> Optional[float]:

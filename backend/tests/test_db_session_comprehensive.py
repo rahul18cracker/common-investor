@@ -43,14 +43,14 @@ class TestSessionManagement:
         assert _test_session.value is None
 
 
-class TestAutoClosingResult:
-    """Test AutoClosingResult wrapper class."""
+class TestResultWrapper:
+    """Test ResultWrapper wrapper class."""
 
     def setup_method(self):
         """Set up test fixtures."""
         self.mock_result = MagicMock(spec=Result)
-        from app.db.session import AutoClosingResult
-        self.wrapper = AutoClosingResult(self.mock_result)
+        from app.db.session import ResultWrapper
+        self.wrapper = ResultWrapper(self.mock_result, is_fetched=False)
 
     def test_first_closes_cursor(self):
         """Test that first() closes cursor after fetching."""
@@ -109,7 +109,7 @@ class TestAutoClosingResult:
 
     def test_fetchone_closes_cursor(self):
         """Test that fetchone() closes cursor after fetching."""
-        self.mock_result.fetchone.return_value = ("row1",)
+        self.mock_result.first.return_value = ("row1",)
         
         result = self.wrapper.fetchone()
         
