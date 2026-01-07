@@ -242,11 +242,11 @@ export default function BigFivePanel({ api, ticker }: { api: string; ticker: str
 
   // Calculate overall score
   const scores = [
-    metrics?.roic_avg_10y && metrics.roic_avg_10y >= 0.15 ? 1 : 0,
-    metrics?.growths?.rev_cagr_10y && metrics.growths.rev_cagr_10y >= 0.10 ? 1 : 0,
-    metrics?.growths?.eps_cagr_10y && metrics.growths.eps_cagr_10y >= 0.10 ? 1 : 0,
-    metrics?.fcf_growth && metrics.fcf_growth > 0 ? 1 : 0,
-    metrics?.debt_to_equity !== undefined && metrics.debt_to_equity < 0.5 ? 1 : 0,
+    metrics?.roic_avg && metrics.roic_avg >= 0.15 ? 1 : 0,
+    metrics?.rev_cagr_10y && metrics.rev_cagr_10y >= 0.10 ? 1 : 0,
+    metrics?.eps_cagr_10y && metrics.eps_cagr_10y >= 0.10 ? 1 : 0,
+    metrics?.fcf_latest && metrics.fcf_latest > 0 ? 1 : 0,
+    metrics?.debt_equity !== undefined && metrics.debt_equity < 0.5 ? 1 : 0,
   ];
   const overallScore = scores.reduce((a, b) => a + b, 0);
   const overallColor = overallScore >= 4 ? '#15803d' : overallScore >= 3 ? '#65a30d' : overallScore >= 2 ? '#ca8a04' : '#dc2626';
@@ -289,8 +289,8 @@ export default function BigFivePanel({ api, ticker }: { api: string; ticker: str
           title="ROIC"
           icon="📊"
           description="Return on Invested Capital measures how efficiently management uses the company's capital to generate profits. Consistent high ROIC indicates a durable competitive advantage (moat)."
-          value={metrics?.roic_avg_10y}
-          formattedValue={formatPct(metrics?.roic_avg_10y)}
+          value={metrics?.roic_avg}
+          formattedValue={formatPct(metrics?.roic_avg)}
           target={0.15}
           targetLabel="≥15% (10-year avg)"
         >
@@ -305,13 +305,13 @@ export default function BigFivePanel({ api, ticker }: { api: string; ticker: str
           title="Revenue Growth"
           icon="📈"
           description="Compound Annual Growth Rate (CAGR) of revenue shows how fast the company is growing its top line. Consistent growth indicates strong demand and market position."
-          value={metrics?.growths?.rev_cagr_10y}
-          formattedValue={formatPct(metrics?.growths?.rev_cagr_10y)}
+          value={metrics?.rev_cagr_10y}
+          formattedValue={formatPct(metrics?.rev_cagr_10y)}
           target={0.10}
           targetLabel="≥10% CAGR"
-          trend={metrics?.growths?.rev_cagr_5y !== undefined ? {
+          trend={metrics?.rev_cagr_5y !== undefined ? {
             label: '5-Year CAGR',
-            value: formatPct(metrics.growths.rev_cagr_5y)
+            value: formatPct(metrics.rev_cagr_5y)
           } : undefined}
         >
           <p style={{ fontSize: 12, color: '#6b7280', margin: 0 }}>
@@ -325,13 +325,13 @@ export default function BigFivePanel({ api, ticker }: { api: string; ticker: str
           title="EPS Growth"
           icon="💰"
           description="Earnings Per Share growth shows how fast profits available to shareholders are growing. This is the key driver of stock price over time."
-          value={metrics?.growths?.eps_cagr_10y}
-          formattedValue={formatPct(metrics?.growths?.eps_cagr_10y)}
+          value={metrics?.eps_cagr_10y}
+          formattedValue={formatPct(metrics?.eps_cagr_10y)}
           target={0.10}
           targetLabel="≥10% CAGR"
-          trend={metrics?.growths?.eps_cagr_5y !== undefined ? {
+          trend={metrics?.eps_cagr_5y !== undefined ? {
             label: '5-Year CAGR',
-            value: formatPct(metrics.growths.eps_cagr_5y)
+            value: formatPct(metrics.eps_cagr_5y)
           } : undefined}
         >
           <p style={{ fontSize: 12, color: '#6b7280', margin: 0 }}>
@@ -345,8 +345,8 @@ export default function BigFivePanel({ api, ticker }: { api: string; ticker: str
           title="Free Cash Flow"
           icon="💵"
           description="Owner Earnings (Operating Cash Flow minus CapEx) represents the actual cash the business generates for owners after maintaining the business."
-          value={metrics?.fcf_growth}
-          formattedValue={formatPct(metrics?.fcf_growth)}
+          value={metrics?.fcf_latest}
+          formattedValue={metrics?.fcf_latest !== undefined ? formatCurrency(metrics.fcf_latest) : 'N/A'}
           target={1}
           targetLabel="Positive & Growing"
         >
@@ -361,8 +361,8 @@ export default function BigFivePanel({ api, ticker }: { api: string; ticker: str
           title="Debt Level"
           icon="🏦"
           description="Debt-to-Equity ratio shows how much the company relies on borrowed money. Lower debt means less risk and more flexibility."
-          value={metrics?.debt_to_equity}
-          formattedValue={metrics?.debt_to_equity !== undefined ? `${(metrics.debt_to_equity).toFixed(2)}` : 'N/A'}
+          value={metrics?.debt_equity}
+          formattedValue={metrics?.debt_equity !== undefined ? `${(metrics.debt_equity).toFixed(2)}` : 'N/A'}
           target={0.5}
           targetLabel="<50% D/E Ratio"
           higherIsBetter={false}
