@@ -5,6 +5,9 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 
+pytestmark = pytest.mark.integration
+
+
 class TestCagr:
     """Tests for cagr function"""
     

@@ -5,6 +5,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 import sys
 
+pytestmark = pytest.mark.integration
 
 class TestPriceYfinance:
     """Tests for price_yfinance function"""

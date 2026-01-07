@@ -5,6 +5,9 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 
+pytestmark = pytest.mark.integration
+
+
 class TestSnapshotPriceForTicker:
     """Tests for snapshot_price_for_ticker function"""
     

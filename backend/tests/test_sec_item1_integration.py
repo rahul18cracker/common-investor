@@ -6,6 +6,9 @@ from unittest.mock import patch, MagicMock
 import httpx
 
 
+pytestmark = pytest.mark.integration
+
+
 class TestCompanySubmissions:
     """Tests for _company_submissions function"""
     

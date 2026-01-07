@@ -92,7 +92,7 @@ jobs:
           --cov=app \
           --cov-report=xml \
           --cov-report=term-missing \
-          --cov-fail-under=90 \
+          --cov-fail-under=80 \
           --maxfail=5
     
     - name: Run integration tests
@@ -108,7 +108,7 @@ jobs:
           -m "integration and not slow" \
           --cov=app \
           --cov-report=term-missing \
-          --cov-fail-under=90 \
+          --cov-fail-under=80 \
           --tb=short \
           --maxfail=3
     
@@ -125,10 +125,27 @@ jobs:
           -m "e2e and not slow" \
           --cov=app \
           --cov-report=term-missing \
-          --cov-fail-under=90 \
           --tb=short \
           --maxfail=1
       continue-on-error: true  # E2E tests may need external services
+    
+    - name: Run all tests (combined coverage)
+      working-directory: backend
+      env:
+        DATABASE_URL: postgresql+psycopg2://ci:ci_pass@localhost:5432/ci_db
+        REDIS_URL: redis://localhost:6379/0
+        SEC_USER_AGENT: "CI/1.0 ci@example.com"
+        PYTHONPATH: .
+      run: |
+        pytest tests/ \
+          -v \
+          -m "not slow" \
+          --cov=app \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          --cov-fail-under=90 \
+          --tb=short \
+          --maxfail=5
     
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4

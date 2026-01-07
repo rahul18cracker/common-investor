@@ -6,6 +6,9 @@ from app.nlp.fourm.service import compute_moat, compute_management, compute_marg
 from app.nlp.fourm.sec_item1 import get_meaning_item1, extract_item_1_business
 
 
+pytestmark = pytest.mark.integration
+
+
 def test_compute_moat_with_empty_data():
     """Test moat computation with no data"""
     # This should handle empty data gracefully

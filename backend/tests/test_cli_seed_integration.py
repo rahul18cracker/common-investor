@@ -6,6 +6,9 @@ from unittest.mock import patch, MagicMock
 from io import StringIO
 
 
+pytestmark = pytest.mark.integration
+
+
 class TestCheckDbHasCompanies:
     """Tests for check_db_has_companies function"""
     
