@@ -18,6 +18,8 @@
     "@testing-library/jest-dom": "^6.4.2",
     "@testing-library/react": "^14.0.0",
     "@types/node": "24.6.1",
+    "@vitejs/plugin-react": "^5.1.2",
+    "@vitest/coverage-v8": "^1.6.0",
     "jsdom": "^24.1.0",
     "typescript": "5.9.3",
     "vitest": "^1.6.0"

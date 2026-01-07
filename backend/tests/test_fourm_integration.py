@@ -57,10 +57,16 @@ def test_extract_item_1_business_basic():
 
 
 def test_get_meaning_item1_invalid_cik():
-    """Test meaning extraction with invalid CIK"""
-    result = get_meaning_item1("0000000000")  # Non-existent CIK
-    assert isinstance(result, dict)
-    assert result.get("status") == "not_found"
+    """Test meaning extraction with invalid CIK - when no 10-K is found"""
+    from unittest.mock import patch
+    
+    # Mock the latest_10k_primary_doc function to return None (no 10-K found)
+    with patch('app.nlp.fourm.sec_item1.latest_10k_primary_doc') as mock_latest:
+        mock_latest.return_value = (None, None)  # No 10-K found
+        
+        result = get_meaning_item1("0000000000")  # Non-existent CIK
+        assert isinstance(result, dict)
+        assert result.get("status") == "not_found"
 
 
 def test_fourm_analysis_data_structure():
