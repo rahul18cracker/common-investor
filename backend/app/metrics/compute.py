@@ -6,6 +6,21 @@ from app.core.utils import convert_row_to_dict
 
 
 def cagr(first: float, last: float, years: int) -> Optional[float]:
+    """
+    Calculate Compound Annual Growth Rate (CAGR).
+    
+    Args:
+        first: Starting value (must be positive)
+        last: Ending value (must be positive)
+        years: Number of years between first and last
+    
+    Returns:
+        CAGR as decimal (e.g., 0.15 for 15% growth) or None if invalid inputs
+    
+    Example:
+        >>> cagr(100, 200, 5)  # 100 grew to 200 over 5 years
+        0.1487...  # ~14.87% annual growth
+    """
     if first is None or last is None or years <= 0 or first <= 0 or last <= 0:
         return None
     try:
@@ -60,6 +75,11 @@ def _calculate_window_cagr(years: List[int], values: List[Optional[float]], wind
 def _fetch_is_series(
     cik: str,
 ) -> List[Tuple[int, Optional[float], Optional[float], Optional[float]]]:
+    """
+    Fetch income statement time series data for a company.
+    
+    Returns list of tuples: (fiscal_year, revenue, eps_diluted, ebit)
+    """
     rows = execute(
         """
         SELECT si.fy, si.revenue, si.eps_diluted, si.ebit
@@ -80,7 +100,12 @@ def _fetch_is_series(
     ]
 
 
-def _fetch_cf_bs_for_roic(cik: str):
+def _fetch_cf_bs_for_roic(cik: str) -> List[Dict]:
+    """
+    Fetch combined cash flow, balance sheet, and income statement data for ROIC calculation.
+    
+    Returns list of dicts with keys: fy, cfo, capex, shares, ebit, taxes, debt, equity, cash, revenue
+    """
     rows = execute(
         """
         SELECT COALESCE(cf.fy, si.fy) as fy,
@@ -134,7 +159,14 @@ def compute_growth_metrics(cik: str) -> Dict[str, Optional[float]]:
     }
 
 
-def owner_earnings_series(cik: str):
+def owner_earnings_series(cik: str) -> List[Dict]:
+    """
+    Calculate owner earnings (free cash flow) series for a company.
+    
+    Owner Earnings = CFO - CapEx (Warren Buffett's preferred metric)
+    
+    Returns list of dicts: {fy, owner_earnings, owner_earnings_ps}
+    """
     rows = _fetch_cf_bs_for_roic(cik)
     out = []
     for r in rows:
@@ -148,7 +180,12 @@ def owner_earnings_series(cik: str):
     return out
 
 
-def latest_owner_earnings_ps(cik: str):
+def latest_owner_earnings_ps(cik: str) -> Optional[float]:
+    """
+    Get the most recent owner earnings per share for a company.
+    
+    Returns the latest non-None owner_earnings_ps value, or None if unavailable.
+    """
     ser = owner_earnings_series(cik)
     if not ser:
         return None
@@ -158,7 +195,16 @@ def latest_owner_earnings_ps(cik: str):
     return float(last["owner_earnings_ps"]) if last else None
 
 
-def roic_series(cik: str):
+def roic_series(cik: str) -> List[Dict]:
+    """
+    Calculate Return on Invested Capital (ROIC) series for a company.
+    
+    ROIC = NOPAT / Invested Capital
+    where NOPAT = EBIT * (1 - tax_rate)
+    and Invested Capital = Equity + Debt - Cash
+    
+    Returns list of dicts: {fy, roic}
+    """
     rows = _fetch_cf_bs_for_roic(cik)
     out = []
     for r in rows:
@@ -190,7 +236,15 @@ def roic_series(cik: str):
     return out
 
 
-def coverage_series(cik: str):
+def coverage_series(cik: str) -> List[Dict]:
+    """
+    Calculate interest coverage ratio series for a company.
+    
+    Interest Coverage = EBIT / Interest Expense
+    Higher values indicate better ability to service debt.
+    
+    Returns list of dicts: {fy, coverage}
+    """
     rows = execute(
         """
         SELECT si.fy, si.ebit, si.interest_expense
@@ -209,7 +263,15 @@ def coverage_series(cik: str):
     return out
 
 
-def margin_stability(cik: str):
+def margin_stability(cik: str) -> Optional[float]:
+    """
+    Calculate operating margin stability score (0-1) for a company.
+    
+    Measures how consistent profit margins are over time.
+    Higher stability (closer to 1) indicates more predictable business.
+    
+    Returns stability score or None if insufficient data (<3 years).
+    """
     series = _fetch_is_series(cik)
     margins = [
         (e / rev) for _, rev, _, e in series if rev and e is not None and rev != 0
@@ -235,7 +297,12 @@ def latest_eps(cik: str) -> Optional[float]:
     return float(row[0]) if row and row[0] is not None else None
 
 
-def revenue_eps_series(cik: str):
+def revenue_eps_series(cik: str) -> List[Dict]:
+    """
+    Fetch revenue and EPS time series for charting.
+    
+    Returns list of dicts: {fy, revenue, eps}
+    """
     rows = execute(
         """
         SELECT si.fy, si.revenue, si.eps_diluted
@@ -310,11 +377,18 @@ def latest_owner_earnings_growth(cik: str) -> Optional[float]:
     return cagr(oe_vals[first_idx][1], oe_vals[last_idx][1], span_years)
 
 
-def timeseries_all(cik: str):
+def timeseries_all(cik: str) -> Dict[str, List[Dict]]:
     """
     Return all time series data for charts.
     
-    Phase D enhancement: Added gross_margin and net_debt series.
+    Aggregates multiple series for frontend visualization:
+    - is: Revenue and EPS series
+    - owner_earnings: Free cash flow series
+    - roic: Return on invested capital series
+    - coverage: Interest coverage ratio series
+    - gross_margin: Gross margin percentage series (Phase D)
+    - net_debt: Net debt series (Phase D)
+    - share_count: Share count with YoY changes (Phase D)
     """
     return {
         "is": revenue_eps_series(cik),

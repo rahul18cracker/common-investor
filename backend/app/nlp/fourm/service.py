@@ -14,9 +14,40 @@ from app.metrics.compute import (
 )
 
 def _series_values(series: List[dict], key: str) -> List[float]:
+    """Extract non-None values from a series of dicts by key."""
     return [float(x[key]) for x in series if x.get(key) is not None]
 
-def _normalize_score(tuples):
+
+def _weighted_average(scores: List[float], weights: List[float]) -> Optional[float]:
+    """
+    Calculate weighted average of scores.
+    
+    Args:
+        scores: List of score values
+        weights: List of corresponding weights (must be same length as scores)
+    
+    Returns:
+        Weighted average, or None if no scores provided
+    
+    Note: This is a DRY extraction (Phase F) - logic unchanged from original inline code.
+    """
+    if not scores:
+        return None
+    total_weight = sum(weights)
+    return sum(s * w for s, w in zip(scores, weights)) / total_weight
+
+
+def _normalize_score(tuples: List[tuple]) -> Optional[float]:
+    """
+    Normalize multiple metrics to 0-1 scale and average them.
+    
+    Args:
+        tuples: List of (value, low_threshold, high_threshold) tuples
+                Values <= low map to 0, values >= high map to 1
+    
+    Returns:
+        Average of normalized scores, or None if no valid values
+    """
     vals = []
     for v, low, high in tuples:
         if v is None: continue
@@ -141,14 +172,19 @@ def _compute_pricing_power(
         scores.append(trend_score)
         weights.append(0.3)
     
-    if not scores:
-        return None
-    
-    # Weighted average
-    total_weight = sum(weights)
-    return sum(s * w for s, w in zip(scores, weights)) / total_weight
+    # Use extracted helper (Phase F DRY refactor)
+    return _weighted_average(scores, weights)
 
 def compute_management(cik: str) -> dict:
+    """
+    Compute management quality score based on capital allocation decisions.
+    
+    Analyzes:
+    - Reinvestment ratio: CapEx / CFO (how much is reinvested in business)
+    - Payout ratio: (Buybacks + Dividends) / CFO (shareholder returns)
+    
+    Returns dict with reinvest_ratio_avg, payout_ratio_avg, and score (0-1).
+    """
     rows = execute("""
         SELECT COALESCE(cf.fy, si.fy) as fy, cf.cfo, cf.capex, cf.buybacks, cf.dividends, si.revenue
         FROM filing f
@@ -263,10 +299,8 @@ def compute_balance_sheet_resilience(cik: str) -> dict:
         scores.append(trend_score)
         weights.append(0.3)
     
-    final_score = None
-    if scores:
-        total_weight = sum(weights)
-        final_score = sum(s * w for s, w in zip(scores, weights)) / total_weight
+    # Use extracted helper (Phase F DRY refactor)
+    final_score = _weighted_average(scores, weights)
     
     return {
         "latest_coverage": latest_coverage,
