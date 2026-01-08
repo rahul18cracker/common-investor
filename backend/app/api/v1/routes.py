@@ -119,24 +119,41 @@ def company_summary(ticker: str):
     company_id, cik, tick, name = row
     latest = execute(
         """
-        SELECT si.fy, si.revenue, si.eps_diluted, si.ebit, si.net_income
+        SELECT si.fy, si.revenue, si.cogs, si.gross_profit, si.sga, si.rnd, 
+               si.depreciation, si.ebit, si.interest_expense, si.taxes,
+               si.net_income, si.eps_diluted, si.shares_diluted
         FROM statement_is si JOIN filing f ON si.filing_id=f.id WHERE f.cik=:cik ORDER BY si.fy DESC LIMIT 1
     """,
         cik=cik,
     ).first()
+    
+    latest_is = None
+    if latest:
+        revenue = safe_float(latest[1])
+        gross_profit = safe_float(latest[3])
+        ebit = safe_float(latest[7])
+        
+        latest_is = {
+            "fy": latest[0],
+            "revenue": revenue,
+            "cogs": safe_float(latest[2]),
+            "gross_profit": gross_profit,
+            "sga": safe_float(latest[4]),
+            "rnd": safe_float(latest[5]),
+            "depreciation": safe_float(latest[6]),
+            "ebit": ebit,
+            "interest_expense": safe_float(latest[8]),
+            "taxes": safe_float(latest[9]),
+            "net_income": safe_float(latest[10]),
+            "eps_diluted": safe_float(latest[11]),
+            "shares_diluted": safe_float(latest[12]),
+            "gross_margin": (gross_profit / revenue) if revenue and gross_profit else None,
+            "operating_margin": (ebit / revenue) if revenue and ebit else None,
+        }
+    
     return {
         "company": {"id": company_id, "cik": cik, "ticker": tick, "name": name},
-        "latest_is": (
-            {
-                "fy": latest[0],
-                "revenue": safe_float(latest[1]),
-                "eps_diluted": safe_float(latest[2]),
-                "ebit": safe_float(latest[3]),
-                "net_income": safe_float(latest[4]),
-            }
-            if latest
-            else None
-        ),
+        "latest_is": latest_is,
     }
 
 

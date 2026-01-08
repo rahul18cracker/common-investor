@@ -453,3 +453,196 @@ class TestEdgeCases:
         )
         
         assert filing_id is not None
+
+
+# =============================================================================
+# Phase A Tests: Income Statement Field Ingestion
+# =============================================================================
+
+@pytest.mark.integration
+@pytest.mark.db
+@pytest.mark.mock_sec
+class TestIncomeStatementIngestion:
+    """Test that all IS fields are properly ingested including new fields:
+    cogs, gross_profit, sga, rnd, depreciation.
+    """
+    
+    def test_ingest_gross_profit(
+        self,
+        db_session,
+        mock_httpx_client,
+        mock_sec_company_facts
+    ):
+        """Test that gross_profit is ingested from SEC data."""
+        from app.db.models import StatementIS, Filing
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        # Get the latest statement
+        stmt = db_session.query(StatementIS).join(Filing).filter(
+            Filing.cik == "0000789019"
+        ).order_by(StatementIS.fy.desc()).first()
+        
+        assert stmt is not None
+        assert stmt.gross_profit is not None
+        # FY2023 gross profit from mock: 146052000000
+        assert float(stmt.gross_profit) == 146052000000
+    
+    def test_ingest_cogs(
+        self,
+        db_session,
+        mock_httpx_client,
+        mock_sec_company_facts
+    ):
+        """Test that cogs (cost of revenue) is ingested from SEC data."""
+        from app.db.models import StatementIS, Filing
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        stmt = db_session.query(StatementIS).join(Filing).filter(
+            Filing.cik == "0000789019"
+        ).order_by(StatementIS.fy.desc()).first()
+        
+        assert stmt is not None
+        assert stmt.cogs is not None
+        # FY2023 cogs from mock: 65863000000
+        assert float(stmt.cogs) == 65863000000
+    
+    def test_ingest_sga(
+        self,
+        db_session,
+        mock_httpx_client,
+        mock_sec_company_facts
+    ):
+        """Test that SG&A expense is ingested from SEC data."""
+        from app.db.models import StatementIS, Filing
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        stmt = db_session.query(StatementIS).join(Filing).filter(
+            Filing.cik == "0000789019"
+        ).order_by(StatementIS.fy.desc()).first()
+        
+        assert stmt is not None
+        assert stmt.sga is not None
+        # FY2023 SG&A from mock: 22759000000
+        assert float(stmt.sga) == 22759000000
+    
+    def test_ingest_rnd(
+        self,
+        db_session,
+        mock_httpx_client,
+        mock_sec_company_facts
+    ):
+        """Test that R&D expense is ingested from SEC data."""
+        from app.db.models import StatementIS, Filing
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        stmt = db_session.query(StatementIS).join(Filing).filter(
+            Filing.cik == "0000789019"
+        ).order_by(StatementIS.fy.desc()).first()
+        
+        assert stmt is not None
+        assert stmt.rnd is not None
+        # FY2023 R&D from mock: 27195000000
+        assert float(stmt.rnd) == 27195000000
+    
+    def test_ingest_depreciation(
+        self,
+        db_session,
+        mock_httpx_client,
+        mock_sec_company_facts
+    ):
+        """Test that depreciation is ingested from SEC data."""
+        from app.db.models import StatementIS, Filing
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        stmt = db_session.query(StatementIS).join(Filing).filter(
+            Filing.cik == "0000789019"
+        ).order_by(StatementIS.fy.desc()).first()
+        
+        assert stmt is not None
+        assert stmt.depreciation is not None
+        # FY2023 D&A from mock: 13861000000
+        assert float(stmt.depreciation) == 13861000000
+    
+    def test_ingest_all_is_fields_multi_year(
+        self,
+        db_session,
+        mock_httpx_client,
+        mock_sec_company_facts
+    ):
+        """Test that all IS fields are ingested for multiple years."""
+        from app.db.models import StatementIS, Filing
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        stmts = db_session.query(StatementIS).join(Filing).filter(
+            Filing.cik == "0000789019"
+        ).order_by(StatementIS.fy.asc()).all()
+        
+        assert len(stmts) >= 3  # Should have 2021, 2022, 2023
+        
+        # Verify all fields are populated for each year
+        for stmt in stmts:
+            assert stmt.revenue is not None
+            assert stmt.gross_profit is not None
+            assert stmt.cogs is not None
+            assert stmt.sga is not None
+            assert stmt.rnd is not None
+            assert stmt.depreciation is not None
+            assert stmt.ebit is not None
+            assert stmt.net_income is not None
+            assert stmt.eps_diluted is not None
+    
+    def test_gross_margin_calculation_possible(
+        self,
+        db_session,
+        mock_httpx_client,
+        mock_sec_company_facts
+    ):
+        """Test that gross margin can be calculated from ingested data."""
+        from app.db.models import StatementIS, Filing
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        stmt = db_session.query(StatementIS).join(Filing).filter(
+            Filing.cik == "0000789019"
+        ).order_by(StatementIS.fy.desc()).first()
+        
+        assert stmt is not None
+        assert stmt.revenue is not None
+        assert stmt.gross_profit is not None
+        
+        # Calculate gross margin
+        gross_margin = float(stmt.gross_profit) / float(stmt.revenue)
+        
+        # MSFT FY2023: 146052B / 211915B ≈ 68.9%
+        assert 0.68 < gross_margin < 0.70
+    
+    def test_operating_margin_calculation_possible(
+        self,
+        db_session,
+        mock_httpx_client,
+        mock_sec_company_facts
+    ):
+        """Test that operating margin can be calculated from ingested data."""
+        from app.db.models import StatementIS, Filing
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        stmt = db_session.query(StatementIS).join(Filing).filter(
+            Filing.cik == "0000789019"
+        ).order_by(StatementIS.fy.desc()).first()
+        
+        assert stmt is not None
+        assert stmt.revenue is not None
+        assert stmt.ebit is not None
+        
+        # Calculate operating margin
+        operating_margin = float(stmt.ebit) / float(stmt.revenue)
+        
+        # MSFT FY2023: 88523B / 211915B ≈ 41.8%
+        assert 0.40 < operating_margin < 0.43

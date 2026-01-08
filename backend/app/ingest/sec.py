@@ -37,11 +37,32 @@ IS_TAGS = {
         "SalesRevenueServicesNet",
         "RevenuesNetOfInterestExpense",
     ],
-    "eps_diluted": ["EarningsPerShareDiluted", "EarningsPerShareBasic"],
+    "cogs": [
+        "CostOfGoodsAndServicesSold",
+        "CostOfRevenue",
+        "CostOfGoodsSold",
+        "CostOfServices",
+    ],
+    "gross_profit": [
+        "GrossProfit",
+    ],
+    "sga": [
+        "SellingGeneralAndAdministrativeExpense",
+        "GeneralAndAdministrativeExpense",
+    ],
+    "rnd": [
+        "ResearchAndDevelopmentExpense",
+    ],
+    "depreciation": [
+        "DepreciationDepletionAndAmortization",
+        "DepreciationAndAmortization",
+        "Depreciation",
+    ],
     "ebit": ["OperatingIncomeLoss"],
     "interest_expense": ["InterestExpense"],
     "taxes": ["IncomeTaxExpenseBenefit"],
     "net_income": ["NetIncomeLoss"],
+    "eps_diluted": ["EarningsPerShareDiluted", "EarningsPerShareBasic"],
     "shares_diluted": [
         "WeightedAverageNumberOfDilutedSharesOutstanding",
         "WeightedAverageNumberOfSharesOutstandingBasic",
@@ -82,6 +103,11 @@ STATEMENT_SCHEMAS = {
         "table": "statement_is",
         "fields": [
             "revenue",
+            "cogs",
+            "gross_profit",
+            "sga",
+            "rnd",
+            "depreciation",
             "ebit",
             "interest_expense",
             "taxes",
@@ -91,6 +117,11 @@ STATEMENT_SCHEMAS = {
         ],
         "units": {
             "revenue": "USD",
+            "cogs": "USD",
+            "gross_profit": "USD",
+            "sga": "USD",
+            "rnd": "USD",
+            "depreciation": "USD",
             "ebit": "USD",
             "interest_expense": "USD",
             "taxes": "USD",

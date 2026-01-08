@@ -100,6 +100,100 @@ class TestCompanyEndpoints:
         assert response.status_code == 200
 
 
+@pytest.mark.integration
+@pytest.mark.api
+@pytest.mark.db
+@pytest.mark.mock_sec
+class TestCompanyEndpointWithFinancials:
+    """Test company endpoint returns all IS fields including Phase A additions."""
+    
+    def test_get_company_returns_all_is_fields(
+        self,
+        client,
+        db_session,
+        mock_httpx_client,
+        mock_sec_company_facts
+    ):
+        """Test that GET /company/{ticker} returns all IS fields including gross_profit, cogs, etc."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        # Ingest test data
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert "latest_is" in data
+        latest_is = data["latest_is"]
+        
+        # Verify all IS fields are present
+        assert latest_is is not None
+        assert "revenue" in latest_is
+        assert "cogs" in latest_is
+        assert "gross_profit" in latest_is
+        assert "sga" in latest_is
+        assert "rnd" in latest_is
+        assert "depreciation" in latest_is
+        assert "ebit" in latest_is
+        assert "interest_expense" in latest_is
+        assert "taxes" in latest_is
+        assert "net_income" in latest_is
+        assert "eps_diluted" in latest_is
+        assert "shares_diluted" in latest_is
+        
+        # Verify computed margins are present
+        assert "gross_margin" in latest_is
+        assert "operating_margin" in latest_is
+    
+    def test_get_company_gross_margin_calculation(
+        self,
+        client,
+        db_session,
+        mock_httpx_client,
+        mock_sec_company_facts
+    ):
+        """Test that gross_margin is correctly calculated."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT")
+        data = response.json()
+        latest_is = data["latest_is"]
+        
+        # Verify gross margin calculation
+        # MSFT FY2023: gross_profit=146052B, revenue=211915B
+        expected_gross_margin = 146052000000 / 211915000000
+        
+        assert latest_is["gross_margin"] is not None
+        assert abs(latest_is["gross_margin"] - expected_gross_margin) < 0.001
+    
+    def test_get_company_operating_margin_calculation(
+        self,
+        client,
+        db_session,
+        mock_httpx_client,
+        mock_sec_company_facts
+    ):
+        """Test that operating_margin is correctly calculated."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT")
+        data = response.json()
+        latest_is = data["latest_is"]
+        
+        # Verify operating margin calculation
+        # MSFT FY2023: ebit=88523B, revenue=211915B
+        expected_operating_margin = 88523000000 / 211915000000
+        
+        assert latest_is["operating_margin"] is not None
+        assert abs(latest_is["operating_margin"] - expected_operating_margin) < 0.001
+
+
 # =============================================================================
 # Unit Tests: Ingestion Endpoints
 # =============================================================================

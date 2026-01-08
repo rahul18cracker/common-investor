@@ -207,6 +207,8 @@ def mock_sec_company_tickers():
 def mock_sec_company_facts():
     """
     Mock SEC company facts API response with sample financial data.
+    Includes all IS fields: revenue, cogs, gross_profit, sga, rnd, depreciation,
+    ebit, interest_expense, taxes, net_income, eps_diluted, shares_diluted.
     """
     return {
         "cik": 789019,
@@ -224,6 +226,94 @@ def mock_sec_company_facts():
                         ]
                     }
                 },
+                "CostOfRevenue": {
+                    "label": "Cost of Revenue",
+                    "description": "Cost of goods and services sold",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 65863000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 62650000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 52232000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "GrossProfit": {
+                    "label": "Gross Profit",
+                    "description": "Revenue minus cost of revenue",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 146052000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 135620000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 115856000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "SellingGeneralAndAdministrativeExpense": {
+                    "label": "SG&A Expense",
+                    "description": "Selling, general and administrative expenses",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 22759000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 21825000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 20117000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "ResearchAndDevelopmentExpense": {
+                    "label": "R&D Expense",
+                    "description": "Research and development costs",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 27195000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 24512000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 20716000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "DepreciationAndAmortization": {
+                    "label": "Depreciation & Amortization",
+                    "description": "Depreciation and amortization expense",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 13861000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 12557000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 11686000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "OperatingIncomeLoss": {
+                    "label": "Operating Income",
+                    "description": "EBIT - Earnings before interest and taxes",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 88523000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 83383000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 69916000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "InterestExpense": {
+                    "label": "Interest Expense",
+                    "description": "Interest expense on debt",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 1968000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 2063000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 2346000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "IncomeTaxExpenseBenefit": {
+                    "label": "Income Tax Expense",
+                    "description": "Income tax expense or benefit",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 16950000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 10978000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 9831000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
                 "EarningsPerShareDiluted": {
                     "label": "Earnings Per Share, Diluted",
                     "description": "Diluted EPS",
@@ -235,6 +325,17 @@ def mock_sec_company_facts():
                         ]
                     }
                 },
+                "WeightedAverageNumberOfDilutedSharesOutstanding": {
+                    "label": "Diluted Shares Outstanding",
+                    "description": "Weighted average diluted shares",
+                    "units": {
+                        "shares": [
+                            {"end": "2023-06-30", "val": 7446000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 7496000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 7547000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
                 "NetIncomeLoss": {
                     "label": "Net Income",
                     "description": "Net income or loss",
@@ -243,6 +344,105 @@ def mock_sec_company_facts():
                             {"end": "2023-06-30", "val": 72361000000, "fy": 2023, "form": "10-K"},
                             {"end": "2022-06-30", "val": 72738000000, "fy": 2022, "form": "10-K"},
                             {"end": "2021-06-30", "val": 61271000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "CashAndCashEquivalentsAtCarryingValue": {
+                    "label": "Cash and Cash Equivalents",
+                    "description": "Cash on hand",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 34704000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 13931000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 14224000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "Assets": {
+                    "label": "Total Assets",
+                    "description": "Total assets",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 411976000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 364840000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 333779000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "Liabilities": {
+                    "label": "Total Liabilities",
+                    "description": "Total liabilities",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 205753000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 198298000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 191791000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "LongTermDebt": {
+                    "label": "Long-term Debt",
+                    "description": "Total long-term debt",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 41990000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 47032000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 50074000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "StockholdersEquity": {
+                    "label": "Stockholders Equity",
+                    "description": "Total stockholders equity",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 206223000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 166542000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 141988000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "NetCashProvidedByUsedInOperatingActivities": {
+                    "label": "Operating Cash Flow",
+                    "description": "Net cash from operating activities",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 87582000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 89035000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 76740000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "PaymentsToAcquirePropertyPlantAndEquipment": {
+                    "label": "Capital Expenditures",
+                    "description": "CapEx - payments for PP&E",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 28107000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 23886000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 20622000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "PaymentsForRepurchaseOfCommonStock": {
+                    "label": "Stock Buybacks",
+                    "description": "Payments for share repurchases",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 22245000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 32696000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 27388000000, "fy": 2021, "form": "10-K"},
+                        ]
+                    }
+                },
+                "PaymentsOfDividends": {
+                    "label": "Dividends Paid",
+                    "description": "Cash dividends paid",
+                    "units": {
+                        "USD": [
+                            {"end": "2023-06-30", "val": 19800000000, "fy": 2023, "form": "10-K"},
+                            {"end": "2022-06-30", "val": 18135000000, "fy": 2022, "form": "10-K"},
+                            {"end": "2021-06-30", "val": 16521000000, "fy": 2021, "form": "10-K"},
                         ]
                     }
                 }

@@ -52,9 +52,11 @@ class TestCompanyEndpoints:
 
     def test_company_summary_success(self, mock_execute):
         """Test successful company summary retrieval."""
+        # Updated to match new API response: (fy, revenue, cogs, gross_profit, sga, rnd, 
+        #   depreciation, ebit, interest_expense, taxes, net_income, eps_diluted, shares_diluted)
         mock_execute.return_value.first.side_effect = [
             (1, "0000789019", "MSFT", "Microsoft Corporation"),
-            (2023, 211915.0, 9.72, 88523.0, 72361.0),
+            (2023, 211915.0, 65863.0, 146052.0, 22759.0, 27195.0, 13861.0, 88523.0, 1968.0, 16950.0, 72361.0, 9.72, 7446.0),
         ]
         
         from app.api.v1.routes import company_summary
@@ -63,6 +65,9 @@ class TestCompanyEndpoints:
         assert result["company"]["ticker"] == "MSFT"
         assert result["latest_is"]["fy"] == 2023
         assert result["latest_is"]["revenue"] == 211915.0
+        assert result["latest_is"]["cogs"] == 65863.0
+        assert result["latest_is"]["gross_profit"] == 146052.0
+        assert result["latest_is"]["gross_margin"] is not None
 
     def test_company_summary_not_found(self, mock_execute):
         """Test 404 when company not found."""

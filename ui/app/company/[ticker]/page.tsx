@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import BigFivePanel from '../../../components/BigFivePanel';
+import IncomeStatementPanel from '../../../components/IncomeStatementPanel';
 import CompanyDashboard from '../../../components/CompanyDashboard';
 import ValuationPanel from '../../../components/ValuationPanel';
 import FourMsPanel from '../../../components/FourMsPanel';
@@ -161,6 +162,7 @@ export default function Company({ params }: { params: { ticker: string } }) {
 
       {/* Main Analysis Sections */}
       <BigFivePanel api={api} ticker={params.ticker} />
+      <IncomeStatementPanel api={api} ticker={params.ticker} />
       <FourMsPanel api={api} ticker={params.ticker} />
       <ValuationPanel api={api} ticker={params.ticker} />
       <CompanyDashboard api={api} ticker={params.ticker} />
