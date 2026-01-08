@@ -688,3 +688,103 @@ class TestQualityScoresEndpoint:
         
         # Should be None or 0-5
         assert score is None or (0 <= score <= 5)
+
+
+# =============================================================================
+# Integration Tests: Phase C Four Ms Endpoint Enhancements
+# =============================================================================
+
+@pytest.mark.integration
+@pytest.mark.api
+@pytest.mark.db
+@pytest.mark.mock_sec
+class TestFourMsEndpointPhaseC:
+    """Integration tests for Phase C Four Ms endpoint enhancements."""
+
+    def test_fourm_includes_balance_sheet_resilience(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that Four Ms endpoint includes balance_sheet_resilience section."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/fourm")
+        assert response.status_code == 200
+        
+        data = response.json()
+        
+        # Verify balance_sheet_resilience section exists
+        assert "balance_sheet_resilience" in data
+        bs = data["balance_sheet_resilience"]
+        
+        # Verify expected fields
+        assert "latest_coverage" in bs
+        assert "debt_to_equity" in bs
+        assert "latest_net_debt" in bs
+        assert "score" in bs
+
+    def test_fourm_moat_includes_phase_c_fields(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that moat section includes Phase C enhancements."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/fourm")
+        assert response.status_code == 200
+        
+        data = response.json()
+        moat = data["moat"]
+        
+        # C1: Gross margin trajectory
+        assert "latest_gross_margin" in moat
+        assert "gross_margin_trend" in moat
+        assert "gross_margin_stability" in moat
+        
+        # C2: ROIC persistence score
+        assert "roic_persistence_score" in moat
+        
+        # C4: Pricing power
+        assert "pricing_power_score" in moat
+
+    def test_fourm_mos_includes_balance_sheet_driver(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that MOS recommendation includes balance sheet score in drivers."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/fourm")
+        assert response.status_code == 200
+        
+        data = response.json()
+        mos = data["mos_recommendation"]
+        
+        # Verify balance_sheet_score is in drivers
+        assert "drivers" in mos
+        assert "balance_sheet_score" in mos["drivers"]
+
+    def test_fourm_balance_sheet_score_range(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that balance sheet score is in valid 0-5 range."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/fourm")
+        data = response.json()
+        
+        score = data["balance_sheet_resilience"]["score"]
+        
+        # Should be None or 0-5
+        assert score is None or (0 <= score <= 5)
+
+    def test_fourm_pricing_power_score_range(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that pricing power score is in valid 0-1 range."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/fourm")
+        data = response.json()
+        
+        score = data["moat"]["pricing_power_score"]
+        
+        # Should be None or 0-1
+        assert score is None or (0 <= score <= 1)

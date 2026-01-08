@@ -18,6 +18,7 @@ from app.nlp.fourm.service import (
     compute_moat,
     compute_management,
     compute_margin_of_safety_recommendation,
+    compute_balance_sheet_resilience,
 )
 from app.nlp.fourm.sec_item1 import get_meaning_item1
 
@@ -300,17 +301,25 @@ def toggle_alert(alert_id: int, body: AlertToggle):
 
 @router.get("/company/{ticker}/fourm")
 def get_fourm_analysis(ticker: str):
-    """Get Four Ms analysis for a company (Meaning, Moat, Management, Margin of Safety)"""
+    """Get Four Ms analysis for a company (Meaning, Moat, Management, Margin of Safety)
+    
+    Phase C enhancements:
+    - Moat now includes gross_margin_trend, roic_persistence_score, pricing_power_score
+    - New balance_sheet_resilience section with 0-5 score
+    - MOS recommendation now factors in balance sheet resilience
+    """
     cik = get_company_cik(ticker)
 
     # Compute the Four Ms analysis
     moat_analysis = compute_moat(cik)
     management_analysis = compute_management(cik)
+    balance_sheet = compute_balance_sheet_resilience(cik)
     mos_recommendation = compute_margin_of_safety_recommendation(cik)
 
     return {
         "moat": moat_analysis,
         "management": management_analysis,
+        "balance_sheet_resilience": balance_sheet,
         "mos_recommendation": mos_recommendation,
         "cik": cik,
     }
