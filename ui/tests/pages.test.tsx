@@ -14,6 +14,10 @@ vi.mock('../components/BigFivePanel', () => ({
   default: ({ ticker }: { ticker: string }) => <div data-testid="big-five-panel">BigFivePanel: {ticker}</div>
 }))
 
+vi.mock('../components/IncomeStatementPanel', () => ({
+  default: ({ ticker }: { ticker: string }) => <div data-testid="income-statement-panel">IncomeStatementPanel: {ticker}</div>
+}))
+
 vi.mock('../components/CompanyDashboard', () => ({
   default: ({ ticker }: { ticker: string }) => <div data-testid="company-dashboard">CompanyDashboard: {ticker}</div>
 }))

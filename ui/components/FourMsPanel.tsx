@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 
-// Helper to get score color and label
+// Helper to get score color and label (0-1 scale)
 function getScoreInfo(score: number | null | undefined): { color: string; label: string; bg: string } {
   if (score === null || score === undefined) return { color: '#666', label: 'Unknown', bg: '#f0f0f0' };
   if (score >= 0.8) return { color: '#15803d', label: 'Excellent', bg: '#dcfce7' };
@@ -9,6 +9,72 @@ function getScoreInfo(score: number | null | undefined): { color: string; label:
   if (score >= 0.4) return { color: '#ca8a04', label: 'Fair', bg: '#fef9c3' };
   if (score >= 0.2) return { color: '#ea580c', label: 'Weak', bg: '#ffedd5' };
   return { color: '#dc2626', label: 'Poor', bg: '#fee2e2' };
+}
+
+// Helper to get score color and label (0-5 scale) - Phase E
+function getScore5Info(score: number | null | undefined): { color: string; label: string; bg: string } {
+  if (score === null || score === undefined) return { color: '#666', label: 'N/A', bg: '#f0f0f0' };
+  if (score >= 4) return { color: '#15803d', label: 'Excellent', bg: '#dcfce7' };
+  if (score >= 3) return { color: '#65a30d', label: 'Good', bg: '#ecfccb' };
+  if (score >= 2) return { color: '#ca8a04', label: 'Fair', bg: '#fef9c3' };
+  if (score >= 1) return { color: '#ea580c', label: 'Weak', bg: '#ffedd5' };
+  return { color: '#dc2626', label: 'Poor', bg: '#fee2e2' };
+}
+
+// E2: ROIC Persistence Badge Component
+function PersistenceBadge({ score }: { score: number | null | undefined }) {
+  const info = getScore5Info(score);
+  return (
+    <div style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '6px 12px',
+      borderRadius: 20,
+      background: info.bg,
+      border: `1px solid ${info.color}20`
+    }}>
+      <span style={{ fontSize: 18 }}>
+        {score !== null && score !== undefined ? '⭐'.repeat(Math.min(5, Math.max(0, Math.round(score)))) : '—'}
+      </span>
+      <span style={{ fontSize: 13, fontWeight: 600, color: info.color }}>
+        {score !== null && score !== undefined ? `${score}/5` : 'N/A'}
+      </span>
+    </div>
+  );
+}
+
+// E4: Volatility Indicator Component
+function VolatilityIndicator({ volatility }: { volatility: number | null | undefined }) {
+  if (volatility === null || volatility === undefined) {
+    return <span style={{ color: '#666' }}>N/A</span>;
+  }
+  
+  let level: string;
+  let color: string;
+  let icon: string;
+  
+  if (volatility <= 0.10) {
+    level = 'Low';
+    color = '#15803d';
+    icon = '📊';
+  } else if (volatility <= 0.20) {
+    level = 'Moderate';
+    color = '#ca8a04';
+    icon = '📈';
+  } else {
+    level = 'High';
+    color = '#dc2626';
+    icon = '🎢';
+  }
+  
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span>{icon}</span>
+      <span style={{ fontWeight: 600, color }}>{level}</span>
+      <span style={{ fontSize: 12, color: '#666' }}>({(volatility * 100).toFixed(1)}%)</span>
+    </div>
+  );
 }
 
 // Helper to format percentage
@@ -240,13 +306,19 @@ export default function FourMsPanel({ api, ticker }: { api: string; ticker: stri
           gap: 16,
           marginBottom: 20
         }}>
-          {/* Moat Card */}
+          {/* Moat Card - Enhanced with Phase C/E */}
           <MCard 
             title="Moat" 
             icon="🏰"
             description="A moat is a durable competitive advantage that protects a company from competitors. Look for high and stable ROIC over many years."
             score={data.moat?.score}
           >
+            {/* E2: ROIC Persistence Badge */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>ROIC Persistence</div>
+              <PersistenceBadge score={data.moat?.roic_persistence_score} />
+            </div>
+            
             <MetricRow 
               label="Avg ROIC" 
               value={formatPct(data.moat?.roic_avg)}
@@ -259,6 +331,28 @@ export default function FourMsPanel({ api, ticker }: { api: string; ticker: stri
               hint="How consistent are the company's profit margins over time? Higher is better."
               target="≥80%"
             />
+            
+            {/* Phase C: Gross Margin & Pricing Power */}
+            <MetricRow 
+              label="Gross Margin" 
+              value={formatPct(data.moat?.latest_gross_margin)}
+              hint="Revenue minus cost of goods sold, divided by revenue. Higher margins indicate pricing power."
+              target="≥30%"
+            />
+            <MetricRow 
+              label="Gross Margin Trend" 
+              value={data.moat?.gross_margin_trend !== null && data.moat?.gross_margin_trend !== undefined 
+                ? `${data.moat.gross_margin_trend >= 0 ? '+' : ''}${(data.moat.gross_margin_trend * 100).toFixed(2)}%` 
+                : 'N/A'}
+              hint="Change in gross margin over time. Positive = improving pricing power."
+            />
+            <MetricRow 
+              label="Pricing Power" 
+              value={formatPct(data.moat?.pricing_power_score)}
+              hint="Composite score based on gross margin level, stability, and trend. Higher = stronger pricing power."
+              target="≥60%"
+            />
+            
             <ScoreBar score={data.moat?.score} label="Overall Moat Strength" />
             <p style={{ fontSize: 12, color: '#6b7280', marginTop: 12, marginBottom: 0 }}>
               <strong>What to look for:</strong> Companies with wide moats have ROIC consistently above 15% for 10+ years.
@@ -287,6 +381,56 @@ export default function FourMsPanel({ api, ticker }: { api: string; ticker: stri
               <strong>What to look for:</strong> Owner-oriented managers who think long-term and allocate capital at high returns.
             </p>
           </MCard>
+
+          {/* E3: Balance Sheet Resilience Card - Phase C */}
+          {data.balance_sheet_resilience && (
+            <MCard 
+              title="Balance Sheet" 
+              icon="🏦"
+              description="Financial strength and ability to weather economic downturns. Strong balance sheets provide safety and flexibility."
+            >
+              {/* Balance Sheet Score Badge */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Resilience Score</div>
+                <PersistenceBadge score={data.balance_sheet_resilience?.score} />
+              </div>
+              
+              <MetricRow 
+                label="Interest Coverage" 
+                value={data.balance_sheet_resilience?.latest_coverage !== null && data.balance_sheet_resilience?.latest_coverage !== undefined
+                  ? `${data.balance_sheet_resilience.latest_coverage.toFixed(1)}x`
+                  : 'N/A'}
+                hint="EBIT divided by interest expense. Higher = more ability to pay debt obligations."
+                target="≥5x"
+              />
+              <MetricRow 
+                label="Debt/Equity" 
+                value={data.balance_sheet_resilience?.debt_to_equity !== null && data.balance_sheet_resilience?.debt_to_equity !== undefined
+                  ? data.balance_sheet_resilience.debt_to_equity.toFixed(2)
+                  : 'N/A'}
+                hint="Total debt divided by shareholder equity. Lower = less leveraged."
+                target="≤0.5"
+              />
+              <MetricRow 
+                label="Net Debt" 
+                value={data.balance_sheet_resilience?.latest_net_debt !== null && data.balance_sheet_resilience?.latest_net_debt !== undefined
+                  ? `$${(data.balance_sheet_resilience.latest_net_debt / 1e9).toFixed(1)}B`
+                  : 'N/A'}
+                hint="Total debt minus cash. Negative = net cash position (good)."
+              />
+              <MetricRow 
+                label="Net Debt Trend" 
+                value={data.balance_sheet_resilience?.net_debt_trend !== null && data.balance_sheet_resilience?.net_debt_trend !== undefined
+                  ? `${data.balance_sheet_resilience.net_debt_trend >= 0 ? '+' : ''}${(data.balance_sheet_resilience.net_debt_trend * 100).toFixed(1)}%`
+                  : 'N/A'}
+                hint="Change in net debt over time. Negative = paying down debt (good)."
+              />
+              
+              <p style={{ fontSize: 12, color: '#6b7280', marginTop: 12, marginBottom: 0 }}>
+                <strong>What to look for:</strong> Companies with low debt, high coverage ratios, and decreasing debt over time.
+              </p>
+            </MCard>
+          )}
 
           {/* Margin of Safety Card */}
           <MCard 

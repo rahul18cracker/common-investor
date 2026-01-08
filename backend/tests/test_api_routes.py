@@ -100,6 +100,100 @@ class TestCompanyEndpoints:
         assert response.status_code == 200
 
 
+@pytest.mark.integration
+@pytest.mark.api
+@pytest.mark.db
+@pytest.mark.mock_sec
+class TestCompanyEndpointWithFinancials:
+    """Test company endpoint returns all IS fields including Phase A additions."""
+    
+    def test_get_company_returns_all_is_fields(
+        self,
+        client,
+        db_session,
+        mock_httpx_client,
+        mock_sec_company_facts
+    ):
+        """Test that GET /company/{ticker} returns all IS fields including gross_profit, cogs, etc."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        # Ingest test data
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert "latest_is" in data
+        latest_is = data["latest_is"]
+        
+        # Verify all IS fields are present
+        assert latest_is is not None
+        assert "revenue" in latest_is
+        assert "cogs" in latest_is
+        assert "gross_profit" in latest_is
+        assert "sga" in latest_is
+        assert "rnd" in latest_is
+        assert "depreciation" in latest_is
+        assert "ebit" in latest_is
+        assert "interest_expense" in latest_is
+        assert "taxes" in latest_is
+        assert "net_income" in latest_is
+        assert "eps_diluted" in latest_is
+        assert "shares_diluted" in latest_is
+        
+        # Verify computed margins are present
+        assert "gross_margin" in latest_is
+        assert "operating_margin" in latest_is
+    
+    def test_get_company_gross_margin_calculation(
+        self,
+        client,
+        db_session,
+        mock_httpx_client,
+        mock_sec_company_facts
+    ):
+        """Test that gross_margin is correctly calculated."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT")
+        data = response.json()
+        latest_is = data["latest_is"]
+        
+        # Verify gross margin calculation
+        # MSFT FY2023: gross_profit=146052B, revenue=211915B
+        expected_gross_margin = 146052000000 / 211915000000
+        
+        assert latest_is["gross_margin"] is not None
+        assert abs(latest_is["gross_margin"] - expected_gross_margin) < 0.001
+    
+    def test_get_company_operating_margin_calculation(
+        self,
+        client,
+        db_session,
+        mock_httpx_client,
+        mock_sec_company_facts
+    ):
+        """Test that operating_margin is correctly calculated."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT")
+        data = response.json()
+        latest_is = data["latest_is"]
+        
+        # Verify operating margin calculation
+        # MSFT FY2023: ebit=88523B, revenue=211915B
+        expected_operating_margin = 88523000000 / 211915000000
+        
+        assert latest_is["operating_margin"] is not None
+        assert abs(latest_is["operating_margin"] - expected_operating_margin) < 0.001
+
+
 # =============================================================================
 # Unit Tests: Ingestion Endpoints
 # =============================================================================
@@ -482,3 +576,337 @@ class TestExportEndpoints:
         
         if response.status_code == 200:
             assert "application/json" in response.headers["content-type"]
+
+
+# =============================================================================
+# Integration Tests: Phase B Quality Scores Endpoint
+# =============================================================================
+
+@pytest.mark.integration
+@pytest.mark.api
+@pytest.mark.db
+@pytest.mark.mock_sec
+class TestQualityScoresEndpoint:
+    """Test the new /company/{ticker}/quality-scores endpoint (Phase B)."""
+    
+    def test_quality_scores_success(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test successful quality scores retrieval after ingestion."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        # Ingest test data directly
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        # Then get quality scores
+        response = client.get("/api/v1/company/MSFT/quality-scores")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Verify all expected fields are present
+        assert "gross_margin_series" in data
+        assert "latest_gross_margin" in data
+        assert "gross_margin_trend" in data
+        assert "revenue_volatility" in data
+        assert "growth_metrics" in data
+        assert "net_debt_series" in data
+        assert "latest_net_debt" in data
+        assert "share_count_trend" in data
+        assert "avg_share_dilution_3y" in data
+        assert "roic_persistence_score" in data
+    
+    def test_quality_scores_growth_metrics_structure(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that growth_metrics contains all CAGR windows."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/quality-scores")
+        data = response.json()
+        
+        growth = data["growth_metrics"]
+        
+        # Should have 1y, 3y, 5y, 10y for both revenue and EPS
+        assert "rev_cagr_1y" in growth
+        assert "rev_cagr_3y" in growth
+        assert "rev_cagr_5y" in growth
+        assert "rev_cagr_10y" in growth
+        assert "eps_cagr_1y" in growth
+        assert "eps_cagr_3y" in growth
+        assert "eps_cagr_5y" in growth
+        assert "eps_cagr_10y" in growth
+    
+    def test_quality_scores_gross_margin_series_structure(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that gross_margin_series has correct structure."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/quality-scores")
+        data = response.json()
+        
+        gm_series = data["gross_margin_series"]
+        
+        # Should be a list with fy and gross_margin keys
+        assert isinstance(gm_series, list)
+        if len(gm_series) > 0:
+            assert "fy" in gm_series[0]
+            assert "gross_margin" in gm_series[0]
+    
+    def test_quality_scores_company_not_found(self, client):
+        """Test 404 when company doesn't exist."""
+        response = client.get("/api/v1/company/INVALID/quality-scores")
+        
+        assert response.status_code == 404
+    
+    def test_quality_scores_share_count_trend_structure(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that share_count_trend has correct structure with YoY changes."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/quality-scores")
+        data = response.json()
+        
+        shares = data["share_count_trend"]
+        
+        assert isinstance(shares, list)
+        if len(shares) > 0:
+            assert "fy" in shares[0]
+            assert "shares" in shares[0]
+            assert "yoy_change" in shares[0]
+    
+    def test_quality_scores_roic_persistence_score_range(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that ROIC persistence score is in valid range (0-5 or None)."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/quality-scores")
+        data = response.json()
+        
+        score = data["roic_persistence_score"]
+        
+        # Should be None or 0-5
+        assert score is None or (0 <= score <= 5)
+
+
+# =============================================================================
+# Integration Tests: Phase C Four Ms Endpoint Enhancements
+# =============================================================================
+
+# =============================================================================
+# Integration Tests: Phase D API Extensions
+# =============================================================================
+
+@pytest.mark.integration
+@pytest.mark.api
+@pytest.mark.db
+@pytest.mark.mock_sec
+class TestMetricsEndpointPhaseD:
+    """Integration tests for Phase D /metrics endpoint enhancements."""
+
+    def test_metrics_includes_extended_growths(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that /metrics includes extended growth metrics."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/metrics")
+        assert response.status_code == 200
+        
+        data = response.json()
+        
+        # Verify extended growths
+        assert "growths_extended" in data
+        extended = data["growths_extended"]
+        assert "rev_cagr_1y" in extended
+        assert "rev_cagr_3y" in extended
+        assert "rev_cagr_5y" in extended
+        assert "rev_cagr_10y" in extended
+
+    def test_metrics_includes_volatility_and_persistence(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that /metrics includes revenue volatility and ROIC persistence."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/metrics")
+        data = response.json()
+        
+        assert "revenue_volatility" in data
+        assert "roic_persistence_score" in data
+        assert "latest_gross_margin" in data
+
+
+@pytest.mark.integration
+@pytest.mark.api
+@pytest.mark.db
+@pytest.mark.mock_sec
+class TestTimeseriesEndpointPhaseD:
+    """Integration tests for Phase D /timeseries endpoint enhancements."""
+
+    def test_timeseries_includes_gross_margin(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that /timeseries includes gross_margin series."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/timeseries")
+        assert response.status_code == 200
+        
+        data = response.json()
+        
+        assert "gross_margin" in data
+        assert "net_debt" in data
+        assert "share_count" in data
+
+
+@pytest.mark.integration
+@pytest.mark.api
+@pytest.mark.db
+@pytest.mark.mock_sec
+class TestAgentBundleEndpoint:
+    """Integration tests for Phase D /agent-bundle endpoint."""
+
+    def test_agent_bundle_returns_all_sections(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that /agent-bundle returns all required sections."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/agent-bundle")
+        assert response.status_code == 200
+        
+        data = response.json()
+        
+        # Verify all top-level sections
+        assert "company" in data
+        assert "metrics" in data
+        assert "quality_scores" in data
+        assert "four_ms" in data
+        assert "timeseries" in data
+
+    def test_agent_bundle_company_info(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that /agent-bundle includes company info."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/agent-bundle")
+        data = response.json()
+        
+        company = data["company"]
+        assert "cik" in company
+        assert "ticker" in company
+        assert "name" in company
+
+    def test_agent_bundle_four_ms_complete(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that /agent-bundle four_ms section is complete."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/agent-bundle")
+        data = response.json()
+        
+        four_ms = data["four_ms"]
+        assert "moat" in four_ms
+        assert "management" in four_ms
+        assert "balance_sheet_resilience" in four_ms
+        assert "mos_recommendation" in four_ms
+
+
+@pytest.mark.integration
+@pytest.mark.api
+@pytest.mark.db
+@pytest.mark.mock_sec
+class TestFourMsEndpointPhaseC:
+    """Integration tests for Phase C Four Ms endpoint enhancements."""
+
+    def test_fourm_includes_balance_sheet_resilience(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that Four Ms endpoint includes balance_sheet_resilience section."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/fourm")
+        assert response.status_code == 200
+        
+        data = response.json()
+        
+        # Verify balance_sheet_resilience section exists
+        assert "balance_sheet_resilience" in data
+        bs = data["balance_sheet_resilience"]
+        
+        # Verify expected fields
+        assert "latest_coverage" in bs
+        assert "debt_to_equity" in bs
+        assert "latest_net_debt" in bs
+        assert "score" in bs
+
+    def test_fourm_moat_includes_phase_c_fields(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that moat section includes Phase C enhancements."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/fourm")
+        assert response.status_code == 200
+        
+        data = response.json()
+        moat = data["moat"]
+        
+        # C1: Gross margin trajectory
+        assert "latest_gross_margin" in moat
+        assert "gross_margin_trend" in moat
+        assert "gross_margin_stability" in moat
+        
+        # C2: ROIC persistence score
+        assert "roic_persistence_score" in moat
+        
+        # C4: Pricing power
+        assert "pricing_power_score" in moat
+
+    def test_fourm_mos_includes_balance_sheet_driver(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that MOS recommendation includes balance sheet score in drivers."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/fourm")
+        assert response.status_code == 200
+        
+        data = response.json()
+        mos = data["mos_recommendation"]
+        
+        # Verify balance_sheet_score is in drivers
+        assert "drivers" in mos
+        assert "balance_sheet_score" in mos["drivers"]
+
+    def test_fourm_balance_sheet_score_range(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that balance sheet score is in valid 0-5 range."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/fourm")
+        data = response.json()
+        
+        score = data["balance_sheet_resilience"]["score"]
+        
+        # Should be None or 0-5
+        assert score is None or (0 <= score <= 5)
+
+    def test_fourm_pricing_power_score_range(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that pricing power score is in valid 0-1 range."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/fourm")
+        data = response.json()
+        
+        score = data["moat"]["pricing_power_score"]
+        
+        # Should be None or 0-1
+        assert score is None or (0 <= score <= 1)

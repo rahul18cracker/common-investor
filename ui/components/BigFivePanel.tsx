@@ -185,14 +185,80 @@ function BigFiveCard({
 
 interface BigFiveData {
   roic_avg?: number;
+  roic_avg_10y?: number;
   rev_cagr_5y?: number;
   rev_cagr_10y?: number;
   eps_cagr_5y?: number;
   eps_cagr_10y?: number;
   owner_earnings?: number;
   fcf_latest?: number;
+  fcf_growth?: number;
   debt_equity?: number;
+  debt_to_equity?: number;
   interest_coverage?: number;
+  // Phase D additions
+  revenue_volatility?: number;
+  roic_persistence_score?: number;
+  latest_gross_margin?: number;
+  growths?: {
+    rev_cagr_5y?: number;
+    rev_cagr_10y?: number;
+    eps_cagr_5y?: number;
+    eps_cagr_10y?: number;
+  };
+  growths_extended?: {
+    rev_cagr_1y?: number;
+    rev_cagr_3y?: number;
+    rev_cagr_5y?: number;
+    rev_cagr_10y?: number;
+    eps_cagr_1y?: number;
+    eps_cagr_3y?: number;
+    eps_cagr_5y?: number;
+    eps_cagr_10y?: number;
+  };
+}
+
+// E4: Volatility Indicator Component
+function VolatilityIndicator({ volatility }: { volatility: number | null | undefined }) {
+  if (volatility === null || volatility === undefined) {
+    return <span style={{ color: '#666' }}>N/A</span>;
+  }
+  
+  let level: string;
+  let color: string;
+  let icon: string;
+  
+  if (volatility <= 0.10) {
+    level = 'Low Cyclicality';
+    color = '#15803d';
+    icon = '📊';
+  } else if (volatility <= 0.20) {
+    level = 'Moderate Cyclicality';
+    color = '#ca8a04';
+    icon = '📈';
+  } else {
+    level = 'High Cyclicality';
+    color = '#dc2626';
+    icon = '🎢';
+  }
+  
+  return (
+    <div style={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: 8,
+      padding: '8px 12px',
+      background: '#f9fafb',
+      borderRadius: 6,
+      marginTop: 8
+    }}>
+      <span style={{ fontSize: 16 }}>{icon}</span>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 600, color }}>{level}</div>
+        <div style={{ fontSize: 11, color: '#6b7280' }}>Revenue volatility: {(volatility * 100).toFixed(1)}%</div>
+      </div>
+    </div>
+  );
 }
 
 export default function BigFivePanel({ api, ticker }: { api: string; ticker: string }) {
@@ -299,22 +365,27 @@ export default function BigFivePanel({ api, ticker }: { api: string; ticker: str
           </p>
         </BigFiveCard>
 
-        {/* 2. Revenue Growth */}
+        {/* 2. Revenue Growth - Enhanced with E4 Volatility */}
         <BigFiveCard
           number={2}
           title="Revenue Growth"
           icon="📈"
           description="Compound Annual Growth Rate (CAGR) of revenue shows how fast the company is growing its top line. Consistent growth indicates strong demand and market position."
-          value={metrics?.rev_cagr_10y}
-          formattedValue={formatPct(metrics?.rev_cagr_10y)}
+          value={metrics?.growths?.rev_cagr_10y ?? metrics?.rev_cagr_10y}
+          formattedValue={formatPct(metrics?.growths?.rev_cagr_10y ?? metrics?.rev_cagr_10y)}
           target={0.10}
           targetLabel="≥10% CAGR"
-          trend={metrics?.rev_cagr_5y !== undefined ? {
+          trend={metrics?.growths?.rev_cagr_5y !== undefined ? {
+            label: '5-Year CAGR',
+            value: formatPct(metrics.growths.rev_cagr_5y)
+          } : metrics?.rev_cagr_5y !== undefined ? {
             label: '5-Year CAGR',
             value: formatPct(metrics.rev_cagr_5y)
           } : undefined}
         >
-          <p style={{ fontSize: 12, color: '#6b7280', margin: 0 }}>
+          {/* E4: Volatility Indicator */}
+          <VolatilityIndicator volatility={metrics?.revenue_volatility} />
+          <p style={{ fontSize: 12, color: '#6b7280', margin: '8px 0 0' }}>
             <strong>Why it matters:</strong> Predictable revenue growth means the business is expanding its market or raising prices.
           </p>
         </BigFiveCard>

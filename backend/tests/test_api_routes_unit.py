@@ -171,7 +171,23 @@ class TestCompanySummary:
     def test_company_summary_success(self):
         """Test successful company summary retrieval."""
         mock_company_row = (1, "0000320193", "AAPL", "Apple Inc.")
-        mock_latest_row = (2023, 394328000000, 6.16, 114301000000, 96995000000)
+        # Updated to match new API response: (fy, revenue, cogs, gross_profit, sga, rnd, 
+        #   depreciation, ebit, interest_expense, taxes, net_income, eps_diluted, shares_diluted)
+        mock_latest_row = (
+            2023,           # fy
+            394328000000,   # revenue
+            214137000000,   # cogs
+            180191000000,   # gross_profit
+            24932000000,    # sga
+            29915000000,    # rnd
+            11519000000,    # depreciation
+            114301000000,   # ebit
+            3933000000,     # interest_expense
+            16741000000,    # taxes
+            96995000000,    # net_income
+            6.16,           # eps_diluted
+            15744000000,    # shares_diluted
+        )
 
         mock_company_result = MagicMock()
         mock_company_result.first.return_value = mock_company_row
@@ -187,6 +203,10 @@ class TestCompanySummary:
             assert result["company"]["ticker"] == "AAPL"
             assert result["latest_is"]["fy"] == 2023
             assert result["latest_is"]["revenue"] == 394328000000
+            assert result["latest_is"]["cogs"] == 214137000000
+            assert result["latest_is"]["gross_profit"] == 180191000000
+            assert result["latest_is"]["gross_margin"] is not None
+            assert result["latest_is"]["operating_margin"] is not None
 
     def test_company_summary_not_found(self):
         """Test company not found raises 404."""

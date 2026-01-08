@@ -7,16 +7,22 @@ from app.core.utils import safe_float, safe_int, get_company_cik
 from app.workers.tasks import enqueue_ingest
 from app.metrics.compute import (
     compute_growth_metrics,
+    compute_growth_metrics_extended,
     timeseries_all,
     roic_average,
     latest_debt_to_equity,
     latest_owner_earnings_growth,
+    quality_scores,
+    revenue_volatility,
+    roic_persistence_score,
+    gross_margin_series,
 )
 from app.valuation.service import run_default_scenario
 from app.nlp.fourm.service import (
     compute_moat,
     compute_management,
     compute_margin_of_safety_recommendation,
+    compute_balance_sheet_resilience,
 )
 from app.nlp.fourm.sec_item1 import get_meaning_item1
 
@@ -119,41 +125,78 @@ def company_summary(ticker: str):
     company_id, cik, tick, name = row
     latest = execute(
         """
-        SELECT si.fy, si.revenue, si.eps_diluted, si.ebit, si.net_income
+        SELECT si.fy, si.revenue, si.cogs, si.gross_profit, si.sga, si.rnd, 
+               si.depreciation, si.ebit, si.interest_expense, si.taxes,
+               si.net_income, si.eps_diluted, si.shares_diluted
         FROM statement_is si JOIN filing f ON si.filing_id=f.id WHERE f.cik=:cik ORDER BY si.fy DESC LIMIT 1
     """,
         cik=cik,
     ).first()
+    
+    latest_is = None
+    if latest:
+        revenue = safe_float(latest[1])
+        gross_profit = safe_float(latest[3])
+        ebit = safe_float(latest[7])
+        
+        latest_is = {
+            "fy": latest[0],
+            "revenue": revenue,
+            "cogs": safe_float(latest[2]),
+            "gross_profit": gross_profit,
+            "sga": safe_float(latest[4]),
+            "rnd": safe_float(latest[5]),
+            "depreciation": safe_float(latest[6]),
+            "ebit": ebit,
+            "interest_expense": safe_float(latest[8]),
+            "taxes": safe_float(latest[9]),
+            "net_income": safe_float(latest[10]),
+            "eps_diluted": safe_float(latest[11]),
+            "shares_diluted": safe_float(latest[12]),
+            "gross_margin": (gross_profit / revenue) if revenue and gross_profit else None,
+            "operating_margin": (ebit / revenue) if revenue and ebit else None,
+        }
+    
     return {
         "company": {"id": company_id, "cik": cik, "ticker": tick, "name": name},
-        "latest_is": (
-            {
-                "fy": latest[0],
-                "revenue": safe_float(latest[1]),
-                "eps_diluted": safe_float(latest[2]),
-                "ebit": safe_float(latest[3]),
-                "net_income": safe_float(latest[4]),
-            }
-            if latest
-            else None
-        ),
+        "latest_is": latest_is,
     }
 
 
 @router.get("/company/{ticker}/metrics")
 def get_metrics(ticker: str):
+    """
+    Get key financial metrics for a company.
+    
+    Phase D enhancements:
+    - Extended growth metrics with 1y/3y/5y/10y CAGR windows
+    - Revenue volatility (cyclicality indicator)
+    - ROIC persistence score (0-5)
+    - Latest gross margin
+    """
     cik = get_company_cik(ticker)
     growths = compute_growth_metrics(cik)
+    growths_extended = compute_growth_metrics_extended(cik)
     roic_avg_10y = roic_average(cik, years=10)
     debt_to_equity = latest_debt_to_equity(cik)
     fcf_growth = latest_owner_earnings_growth(cik)
+    rev_volatility = revenue_volatility(cik)
+    roic_persist = roic_persistence_score(cik)
+    
+    # Get latest gross margin
+    gm_series = gross_margin_series(cik)
+    latest_gm = gm_series[-1]["gross_margin"] if gm_series and gm_series[-1].get("gross_margin") else None
 
     return {
         "cik": cik,
         "growths": growths,
+        "growths_extended": growths_extended,
         "roic_avg_10y": roic_avg_10y,
         "debt_to_equity": debt_to_equity,
         "fcf_growth": fcf_growth,
+        "revenue_volatility": rev_volatility,
+        "roic_persistence_score": roic_persist,
+        "latest_gross_margin": latest_gm,
     }
 
 
@@ -161,6 +204,72 @@ def get_metrics(ticker: str):
 def get_timeseries(ticker: str):
     cik = get_company_cik(ticker)
     return timeseries_all(cik)
+
+
+@router.get("/company/{ticker}/quality-scores")
+def get_quality_scores(ticker: str):
+    """
+    Phase B: New endpoint returning quality-related metrics for qualitative analysis.
+    
+    Returns:
+    - gross_margin_series: Historical gross margins for trend analysis
+    - latest_gross_margin: Most recent gross margin
+    - gross_margin_trend: Change in gross margin (positive = improving)
+    - revenue_volatility: Std dev of YoY revenue growth (cyclicality indicator)
+    - growth_metrics: Extended CAGR windows (1y/3y/5y/10y for revenue and EPS)
+    - net_debt_series: Historical net debt (total_debt - cash)
+    - latest_net_debt: Most recent net debt
+    - share_count_trend: Share count with YoY changes (dilution tracking)
+    - avg_share_dilution_3y: Average share dilution over last 3 years
+    - roic_persistence_score: 0-5 rating based on ROIC consistency (Option C)
+    """
+    cik = get_company_cik(ticker)
+    return quality_scores(cik)
+
+
+@router.get("/company/{ticker}/agent-bundle")
+def get_agent_bundle(ticker: str):
+    """
+    D4: Return all quantitative data in agent-ready format for qualitative analysis.
+    
+    This endpoint aggregates all metrics, scores, and time series data that the
+    qualitative analysis agent needs to produce its JSON outputs (moat.json,
+    unit_economics.json, peers.json, risks.json, thesis.json).
+    """
+    cik = get_company_cik(ticker)
+    
+    # Get company info
+    row = execute(
+        "SELECT c.id, c.ticker, c.name FROM company c WHERE c.cik=:cik",
+        cik=cik,
+    ).first()
+    company_info = {
+        "cik": cik,
+        "ticker": row[1] if row else ticker.upper(),
+        "name": row[2] if row else None,
+    }
+    
+    # Aggregate all quantitative data
+    return {
+        "company": company_info,
+        "metrics": {
+            "growths": compute_growth_metrics(cik),
+            "growths_extended": compute_growth_metrics_extended(cik),
+            "roic_avg_10y": roic_average(cik, years=10),
+            "debt_to_equity": latest_debt_to_equity(cik),
+            "fcf_growth": latest_owner_earnings_growth(cik),
+            "revenue_volatility": revenue_volatility(cik),
+            "roic_persistence_score": roic_persistence_score(cik),
+        },
+        "quality_scores": quality_scores(cik),
+        "four_ms": {
+            "moat": compute_moat(cik),
+            "management": compute_management(cik),
+            "balance_sheet_resilience": compute_balance_sheet_resilience(cik),
+            "mos_recommendation": compute_margin_of_safety_recommendation(cik),
+        },
+        "timeseries": timeseries_all(cik),
+    }
 
 
 class ValuationRequest(BaseModel):
@@ -261,17 +370,25 @@ def toggle_alert(alert_id: int, body: AlertToggle):
 
 @router.get("/company/{ticker}/fourm")
 def get_fourm_analysis(ticker: str):
-    """Get Four Ms analysis for a company (Meaning, Moat, Management, Margin of Safety)"""
+    """Get Four Ms analysis for a company (Meaning, Moat, Management, Margin of Safety)
+    
+    Phase C enhancements:
+    - Moat now includes gross_margin_trend, roic_persistence_score, pricing_power_score
+    - New balance_sheet_resilience section with 0-5 score
+    - MOS recommendation now factors in balance sheet resilience
+    """
     cik = get_company_cik(ticker)
 
     # Compute the Four Ms analysis
     moat_analysis = compute_moat(cik)
     management_analysis = compute_management(cik)
+    balance_sheet = compute_balance_sheet_resilience(cik)
     mos_recommendation = compute_margin_of_safety_recommendation(cik)
 
     return {
         "moat": moat_analysis,
         "management": management_analysis,
+        "balance_sheet_resilience": balance_sheet,
         "mos_recommendation": mos_recommendation,
         "cik": cik,
     }

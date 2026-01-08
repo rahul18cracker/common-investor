@@ -6,6 +6,21 @@ from app.core.utils import convert_row_to_dict
 
 
 def cagr(first: float, last: float, years: int) -> Optional[float]:
+    """
+    Calculate Compound Annual Growth Rate (CAGR).
+    
+    Args:
+        first: Starting value (must be positive)
+        last: Ending value (must be positive)
+        years: Number of years between first and last
+    
+    Returns:
+        CAGR as decimal (e.g., 0.15 for 15% growth) or None if invalid inputs
+    
+    Example:
+        >>> cagr(100, 200, 5)  # 100 grew to 200 over 5 years
+        0.1487...  # ~14.87% annual growth
+    """
     if first is None or last is None or years <= 0 or first <= 0 or last <= 0:
         return None
     try:
@@ -60,6 +75,11 @@ def _calculate_window_cagr(years: List[int], values: List[Optional[float]], wind
 def _fetch_is_series(
     cik: str,
 ) -> List[Tuple[int, Optional[float], Optional[float], Optional[float]]]:
+    """
+    Fetch income statement time series data for a company.
+    
+    Returns list of tuples: (fiscal_year, revenue, eps_diluted, ebit)
+    """
     rows = execute(
         """
         SELECT si.fy, si.revenue, si.eps_diluted, si.ebit
@@ -80,7 +100,12 @@ def _fetch_is_series(
     ]
 
 
-def _fetch_cf_bs_for_roic(cik: str):
+def _fetch_cf_bs_for_roic(cik: str) -> List[Dict]:
+    """
+    Fetch combined cash flow, balance sheet, and income statement data for ROIC calculation.
+    
+    Returns list of dicts with keys: fy, cfo, capex, shares, ebit, taxes, debt, equity, cash, revenue
+    """
     rows = execute(
         """
         SELECT COALESCE(cf.fy, si.fy) as fy,
@@ -134,7 +159,14 @@ def compute_growth_metrics(cik: str) -> Dict[str, Optional[float]]:
     }
 
 
-def owner_earnings_series(cik: str):
+def owner_earnings_series(cik: str) -> List[Dict]:
+    """
+    Calculate owner earnings (free cash flow) series for a company.
+    
+    Owner Earnings = CFO - CapEx (Warren Buffett's preferred metric)
+    
+    Returns list of dicts: {fy, owner_earnings, owner_earnings_ps}
+    """
     rows = _fetch_cf_bs_for_roic(cik)
     out = []
     for r in rows:
@@ -148,7 +180,12 @@ def owner_earnings_series(cik: str):
     return out
 
 
-def latest_owner_earnings_ps(cik: str):
+def latest_owner_earnings_ps(cik: str) -> Optional[float]:
+    """
+    Get the most recent owner earnings per share for a company.
+    
+    Returns the latest non-None owner_earnings_ps value, or None if unavailable.
+    """
     ser = owner_earnings_series(cik)
     if not ser:
         return None
@@ -158,7 +195,16 @@ def latest_owner_earnings_ps(cik: str):
     return float(last["owner_earnings_ps"]) if last else None
 
 
-def roic_series(cik: str):
+def roic_series(cik: str) -> List[Dict]:
+    """
+    Calculate Return on Invested Capital (ROIC) series for a company.
+    
+    ROIC = NOPAT / Invested Capital
+    where NOPAT = EBIT * (1 - tax_rate)
+    and Invested Capital = Equity + Debt - Cash
+    
+    Returns list of dicts: {fy, roic}
+    """
     rows = _fetch_cf_bs_for_roic(cik)
     out = []
     for r in rows:
@@ -190,7 +236,15 @@ def roic_series(cik: str):
     return out
 
 
-def coverage_series(cik: str):
+def coverage_series(cik: str) -> List[Dict]:
+    """
+    Calculate interest coverage ratio series for a company.
+    
+    Interest Coverage = EBIT / Interest Expense
+    Higher values indicate better ability to service debt.
+    
+    Returns list of dicts: {fy, coverage}
+    """
     rows = execute(
         """
         SELECT si.fy, si.ebit, si.interest_expense
@@ -209,7 +263,15 @@ def coverage_series(cik: str):
     return out
 
 
-def margin_stability(cik: str):
+def margin_stability(cik: str) -> Optional[float]:
+    """
+    Calculate operating margin stability score (0-1) for a company.
+    
+    Measures how consistent profit margins are over time.
+    Higher stability (closer to 1) indicates more predictable business.
+    
+    Returns stability score or None if insufficient data (<3 years).
+    """
     series = _fetch_is_series(cik)
     margins = [
         (e / rev) for _, rev, _, e in series if rev and e is not None and rev != 0
@@ -235,7 +297,12 @@ def latest_eps(cik: str) -> Optional[float]:
     return float(row[0]) if row and row[0] is not None else None
 
 
-def revenue_eps_series(cik: str):
+def revenue_eps_series(cik: str) -> List[Dict]:
+    """
+    Fetch revenue and EPS time series for charting.
+    
+    Returns list of dicts: {fy, revenue, eps}
+    """
     rows = execute(
         """
         SELECT si.fy, si.revenue, si.eps_diluted
@@ -310,10 +377,278 @@ def latest_owner_earnings_growth(cik: str) -> Optional[float]:
     return cagr(oe_vals[first_idx][1], oe_vals[last_idx][1], span_years)
 
 
-def timeseries_all(cik: str):
+def timeseries_all(cik: str) -> Dict[str, List[Dict]]:
+    """
+    Return all time series data for charts.
+    
+    Aggregates multiple series for frontend visualization:
+    - is: Revenue and EPS series
+    - owner_earnings: Free cash flow series
+    - roic: Return on invested capital series
+    - coverage: Interest coverage ratio series
+    - gross_margin: Gross margin percentage series (Phase D)
+    - net_debt: Net debt series (Phase D)
+    - share_count: Share count with YoY changes (Phase D)
+    """
     return {
         "is": revenue_eps_series(cik),
         "owner_earnings": owner_earnings_series(cik),
         "roic": roic_series(cik),
         "coverage": coverage_series(cik),
+        "gross_margin": gross_margin_series(cik),
+        "net_debt": net_debt_series(cik),
+        "share_count": share_count_trend(cik),
+    }
+
+
+# =============================================================================
+# Phase B: New Metrics Functions
+# =============================================================================
+
+def gross_margin_series(cik: str) -> List[Dict]:
+    """
+    B1: Calculate gross margin series for trend analysis.
+    
+    Returns list of {fy, gross_margin} where gross_margin = gross_profit / revenue.
+    If gross_profit is not available, attempts to calculate from revenue - cogs.
+    """
+    rows = execute(
+        """
+        SELECT si.fy, si.revenue, si.gross_profit, si.cogs
+        FROM statement_is si JOIN filing f ON si.filing_id=f.id
+        WHERE f.cik=:cik AND si.fy IS NOT NULL
+        ORDER BY si.fy ASC
+    """,
+        cik=cik,
+    ).fetchall()
+    
+    out = []
+    for fy, revenue, gross_profit, cogs in rows:
+        gm = None
+        rev = float(revenue) if revenue is not None else None
+        gp = float(gross_profit) if gross_profit is not None else None
+        cost = float(cogs) if cogs is not None else None
+        
+        if rev and rev != 0:
+            if gp is not None:
+                gm = gp / rev
+            elif cost is not None:
+                gm = (rev - cost) / rev
+        
+        out.append({"fy": int(fy), "gross_margin": gm})
+    return out
+
+
+def revenue_volatility(cik: str) -> Optional[float]:
+    """
+    B2: Calculate revenue volatility as std dev of YoY revenue growth rates.
+    
+    This measures cyclicality - higher volatility indicates more cyclical business.
+    Returns None if insufficient data (need at least 3 years for meaningful volatility).
+    """
+    series = _fetch_is_series(cik)
+    if len(series) < 3:
+        return None
+    
+    # Calculate YoY growth rates
+    growth_rates = []
+    for i in range(1, len(series)):
+        prev_rev = series[i - 1][1]  # revenue is index 1
+        curr_rev = series[i][1]
+        if prev_rev and curr_rev and prev_rev != 0:
+            growth = (curr_rev - prev_rev) / prev_rev
+            growth_rates.append(growth)
+    
+    if len(growth_rates) < 2:
+        return None
+    
+    return pstdev(growth_rates)
+
+
+def compute_growth_metrics_extended(cik: str) -> Dict[str, Optional[float]]:
+    """
+    B3: Extended growth metrics with 1y/3y/5y/10y CAGR windows.
+    
+    Extends the original compute_growth_metrics() with shorter windows
+    for more granular trend analysis.
+    """
+    series = _fetch_is_series(cik)
+    if not series or len(series) < 2:
+        return {
+            "rev_cagr_1y": None,
+            "rev_cagr_3y": None,
+            "rev_cagr_5y": None,
+            "rev_cagr_10y": None,
+            "eps_cagr_1y": None,
+            "eps_cagr_3y": None,
+            "eps_cagr_5y": None,
+            "eps_cagr_10y": None,
+        }
+    
+    years = [fy for fy, *_ in series]
+    revs = [rev for _, rev, _, _ in series]
+    eps = [e for _, _, e, _ in series]
+
+    return {
+        "rev_cagr_1y": _calculate_window_cagr(years, revs, 1),
+        "rev_cagr_3y": _calculate_window_cagr(years, revs, 3),
+        "rev_cagr_5y": _calculate_window_cagr(years, revs, 5),
+        "rev_cagr_10y": _calculate_window_cagr(years, revs, 10),
+        "eps_cagr_1y": _calculate_window_cagr(years, eps, 1),
+        "eps_cagr_3y": _calculate_window_cagr(years, eps, 3),
+        "eps_cagr_5y": _calculate_window_cagr(years, eps, 5),
+        "eps_cagr_10y": _calculate_window_cagr(years, eps, 10),
+    }
+
+
+def net_debt_series(cik: str) -> List[Dict]:
+    """
+    B4: Calculate net debt series (total_debt - cash).
+    
+    Negative net debt means company has more cash than debt (strong position).
+    """
+    rows = execute(
+        """
+        SELECT bs.fy, bs.total_debt, bs.cash
+        FROM statement_bs bs JOIN filing f ON bs.filing_id=f.id
+        WHERE f.cik=:cik AND bs.fy IS NOT NULL
+        ORDER BY bs.fy ASC
+    """,
+        cik=cik,
+    ).fetchall()
+    
+    out = []
+    for fy, total_debt, cash in rows:
+        nd = None
+        debt = float(total_debt) if total_debt is not None else None
+        cash_val = float(cash) if cash is not None else None
+        
+        if debt is not None and cash_val is not None:
+            nd = debt - cash_val
+        
+        out.append({"fy": int(fy), "net_debt": nd})
+    return out
+
+
+def share_count_trend(cik: str) -> List[Dict]:
+    """
+    B5: Track diluted share count and YoY changes.
+    
+    Decreasing shares = buybacks (shareholder friendly)
+    Increasing shares = dilution (shareholder unfriendly)
+    """
+    rows = execute(
+        """
+        SELECT si.fy, si.shares_diluted
+        FROM statement_is si JOIN filing f ON si.filing_id=f.id
+        WHERE f.cik=:cik AND si.fy IS NOT NULL
+        ORDER BY si.fy ASC
+    """,
+        cik=cik,
+    ).fetchall()
+    
+    out = []
+    prev_shares = None
+    for fy, shares in rows:
+        shares_val = float(shares) if shares is not None else None
+        yoy_change = None
+        
+        if shares_val is not None and prev_shares is not None and prev_shares != 0:
+            yoy_change = (shares_val - prev_shares) / prev_shares
+        
+        out.append({
+            "fy": int(fy),
+            "shares": shares_val,
+            "yoy_change": yoy_change,
+        })
+        prev_shares = shares_val
+    
+    return out
+
+
+def roic_persistence_score(cik: str, years: int = 5, threshold: float = 0.15) -> Optional[int]:
+    """
+    B6: Calculate ROIC persistence score (0-5) based on Option C criteria.
+    
+    Option C: Must be >= threshold (15%) AND stable (low variance).
+    
+    Scoring:
+    - Start with count of years where ROIC >= threshold (0-5)
+    - Penalize by 1 point if ROIC variance is high (CV > 0.3)
+    - Bonus 1 point if all years meet threshold AND variance is very low (CV < 0.15)
+    
+    Returns 0-5 score, or None if insufficient data.
+    """
+    series = roic_series(cik)
+    recent_roics = [x["roic"] for x in series if x["roic"] is not None][-years:]
+    
+    if len(recent_roics) < 2:
+        return None
+    
+    # Count years meeting threshold
+    above_threshold = sum(1 for r in recent_roics if r >= threshold)
+    
+    # Calculate coefficient of variation (CV) for stability
+    avg_roic = sum(recent_roics) / len(recent_roics)
+    if avg_roic == 0:
+        return above_threshold  # Can't calculate CV, return base score
+    
+    std_roic = pstdev(recent_roics)
+    cv = std_roic / abs(avg_roic)  # Coefficient of variation
+    
+    # Start with base score (years above threshold, max 5)
+    score = min(above_threshold, 5)
+    
+    # Penalize high variance (CV > 0.3)
+    if cv > 0.3:
+        score = max(0, score - 1)
+    
+    # Bonus for excellent consistency (all years above threshold AND very stable)
+    if above_threshold >= years and cv < 0.15:
+        score = min(5, score + 1)
+    
+    return score
+
+
+def quality_scores(cik: str) -> Dict:
+    """
+    Aggregate function returning all quality-related metrics for the new API endpoint.
+    """
+    gm_series = gross_margin_series(cik)
+    rev_vol = revenue_volatility(cik)
+    growth = compute_growth_metrics_extended(cik)
+    nd_series = net_debt_series(cik)
+    shares = share_count_trend(cik)
+    roic_score = roic_persistence_score(cik)
+    
+    # Calculate gross margin trend (positive = improving)
+    gm_trend = None
+    gm_values = [x["gross_margin"] for x in gm_series if x["gross_margin"] is not None]
+    if len(gm_values) >= 3:
+        recent_avg = sum(gm_values[-3:]) / 3
+        older_avg = sum(gm_values[:3]) / min(3, len(gm_values))
+        gm_trend = recent_avg - older_avg
+    
+    # Latest gross margin
+    latest_gm = gm_values[-1] if gm_values else None
+    
+    # Latest net debt
+    nd_values = [x["net_debt"] for x in nd_series if x["net_debt"] is not None]
+    latest_net_debt = nd_values[-1] if nd_values else None
+    
+    # Share dilution trend (average YoY change over last 3 years)
+    share_changes = [x["yoy_change"] for x in shares if x["yoy_change"] is not None]
+    avg_dilution = sum(share_changes[-3:]) / len(share_changes[-3:]) if len(share_changes) >= 1 else None
+    
+    return {
+        "gross_margin_series": gm_series,
+        "latest_gross_margin": latest_gm,
+        "gross_margin_trend": gm_trend,
+        "revenue_volatility": rev_vol,
+        "growth_metrics": growth,
+        "net_debt_series": nd_series,
+        "latest_net_debt": latest_net_debt,
+        "share_count_trend": shares,
+        "avg_share_dilution_3y": avg_dilution,
+        "roic_persistence_score": roic_score,
     }
