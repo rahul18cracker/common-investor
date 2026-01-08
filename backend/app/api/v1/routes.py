@@ -11,6 +11,7 @@ from app.metrics.compute import (
     roic_average,
     latest_debt_to_equity,
     latest_owner_earnings_growth,
+    quality_scores,
 )
 from app.valuation.service import run_default_scenario
 from app.nlp.fourm.service import (
@@ -178,6 +179,27 @@ def get_metrics(ticker: str):
 def get_timeseries(ticker: str):
     cik = get_company_cik(ticker)
     return timeseries_all(cik)
+
+
+@router.get("/company/{ticker}/quality-scores")
+def get_quality_scores(ticker: str):
+    """
+    Phase B: New endpoint returning quality-related metrics for qualitative analysis.
+    
+    Returns:
+    - gross_margin_series: Historical gross margins for trend analysis
+    - latest_gross_margin: Most recent gross margin
+    - gross_margin_trend: Change in gross margin (positive = improving)
+    - revenue_volatility: Std dev of YoY revenue growth (cyclicality indicator)
+    - growth_metrics: Extended CAGR windows (1y/3y/5y/10y for revenue and EPS)
+    - net_debt_series: Historical net debt (total_debt - cash)
+    - latest_net_debt: Most recent net debt
+    - share_count_trend: Share count with YoY changes (dilution tracking)
+    - avg_share_dilution_3y: Average share dilution over last 3 years
+    - roic_persistence_score: 0-5 rating based on ROIC consistency (Option C)
+    """
+    cik = get_company_cik(ticker)
+    return quality_scores(cik)
 
 
 class ValuationRequest(BaseModel):

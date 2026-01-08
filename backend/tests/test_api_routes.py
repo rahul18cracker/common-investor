@@ -576,3 +576,115 @@ class TestExportEndpoints:
         
         if response.status_code == 200:
             assert "application/json" in response.headers["content-type"]
+
+
+# =============================================================================
+# Integration Tests: Phase B Quality Scores Endpoint
+# =============================================================================
+
+@pytest.mark.integration
+@pytest.mark.api
+@pytest.mark.db
+@pytest.mark.mock_sec
+class TestQualityScoresEndpoint:
+    """Test the new /company/{ticker}/quality-scores endpoint (Phase B)."""
+    
+    def test_quality_scores_success(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test successful quality scores retrieval after ingestion."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        # Ingest test data directly
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        # Then get quality scores
+        response = client.get("/api/v1/company/MSFT/quality-scores")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Verify all expected fields are present
+        assert "gross_margin_series" in data
+        assert "latest_gross_margin" in data
+        assert "gross_margin_trend" in data
+        assert "revenue_volatility" in data
+        assert "growth_metrics" in data
+        assert "net_debt_series" in data
+        assert "latest_net_debt" in data
+        assert "share_count_trend" in data
+        assert "avg_share_dilution_3y" in data
+        assert "roic_persistence_score" in data
+    
+    def test_quality_scores_growth_metrics_structure(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that growth_metrics contains all CAGR windows."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/quality-scores")
+        data = response.json()
+        
+        growth = data["growth_metrics"]
+        
+        # Should have 1y, 3y, 5y, 10y for both revenue and EPS
+        assert "rev_cagr_1y" in growth
+        assert "rev_cagr_3y" in growth
+        assert "rev_cagr_5y" in growth
+        assert "rev_cagr_10y" in growth
+        assert "eps_cagr_1y" in growth
+        assert "eps_cagr_3y" in growth
+        assert "eps_cagr_5y" in growth
+        assert "eps_cagr_10y" in growth
+    
+    def test_quality_scores_gross_margin_series_structure(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that gross_margin_series has correct structure."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/quality-scores")
+        data = response.json()
+        
+        gm_series = data["gross_margin_series"]
+        
+        # Should be a list with fy and gross_margin keys
+        assert isinstance(gm_series, list)
+        if len(gm_series) > 0:
+            assert "fy" in gm_series[0]
+            assert "gross_margin" in gm_series[0]
+    
+    def test_quality_scores_company_not_found(self, client):
+        """Test 404 when company doesn't exist."""
+        response = client.get("/api/v1/company/INVALID/quality-scores")
+        
+        assert response.status_code == 404
+    
+    def test_quality_scores_share_count_trend_structure(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that share_count_trend has correct structure with YoY changes."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/quality-scores")
+        data = response.json()
+        
+        shares = data["share_count_trend"]
+        
+        assert isinstance(shares, list)
+        if len(shares) > 0:
+            assert "fy" in shares[0]
+            assert "shares" in shares[0]
+            assert "yoy_change" in shares[0]
+    
+    def test_quality_scores_roic_persistence_score_range(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that ROIC persistence score is in valid range (0-5 or None)."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/quality-scores")
+        data = response.json()
+        
+        score = data["roic_persistence_score"]
+        
+        # Should be None or 0-5
+        assert score is None or (0 <= score <= 5)
