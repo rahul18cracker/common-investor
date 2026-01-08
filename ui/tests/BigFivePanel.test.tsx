@@ -270,4 +270,119 @@ describe('Helper Functions', () => {
       expect(formatCurrency(-2_500_000_000)).toBe('$-2.5B')
     })
   })
+
+  describe('Phase E: Volatility Indicator', () => {
+    it('displays volatility indicator with low cyclicality', async () => {
+      const mockMetrics = {
+        roic_avg_10y: 0.18,
+        growths: {
+          rev_cagr_5y: 0.12,
+          rev_cagr_10y: 0.11,
+        },
+        revenue_volatility: 0.03,
+      }
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockMetrics),
+      })
+      render(<BigFivePanel api="http://localhost:8000" ticker="WMT" />)
+      
+      await waitFor(() => {
+        expect(screen.getByText(/Low Cyclicality/)).toBeInTheDocument()
+      })
+    })
+
+    it('displays volatility indicator with moderate cyclicality', async () => {
+      const mockMetrics = {
+        roic_avg_10y: 0.15,
+        growths: {
+          rev_cagr_5y: 0.08,
+          rev_cagr_10y: 0.07,
+        },
+        revenue_volatility: 0.12,
+      }
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockMetrics),
+      })
+      render(<BigFivePanel api="http://localhost:8000" ticker="CAT" />)
+      
+      await waitFor(() => {
+        expect(screen.getByText(/Moderate Cyclicality/)).toBeInTheDocument()
+      })
+    })
+
+    it('displays volatility indicator with high cyclicality', async () => {
+      const mockMetrics = {
+        roic_avg_10y: 0.12,
+        growths: {
+          rev_cagr_5y: 0.05,
+          rev_cagr_10y: 0.04,
+        },
+        revenue_volatility: 0.25,
+      }
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockMetrics),
+      })
+      render(<BigFivePanel api="http://localhost:8000" ticker="XOM" />)
+      
+      await waitFor(() => {
+        expect(screen.getByText(/High Cyclicality/)).toBeInTheDocument()
+      })
+    })
+
+    it('does not display volatility indicator when data is missing', async () => {
+      const mockMetrics = {
+        roic_avg_10y: 0.18,
+        growths: {
+          rev_cagr_5y: 0.12,
+          rev_cagr_10y: 0.11,
+        },
+        // No revenue_volatility
+      }
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockMetrics),
+      })
+      render(<BigFivePanel api="http://localhost:8000" ticker="AAPL" />)
+      
+      await waitFor(() => {
+        expect(screen.getByText('Revenue Growth')).toBeInTheDocument()
+      })
+      
+      // Volatility indicator should not be present
+      expect(screen.queryByText(/Cyclicality/)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('Phase E: Revenue Growth Trend Fallback', () => {
+    it('uses top-level rev_cagr_5y when growths object is missing', async () => {
+      const mockMetrics = {
+        roic_avg_10y: 0.18,
+        rev_cagr_5y: 0.14,
+        rev_cagr_10y: 0.11,
+        eps_cagr_5y: 0.12,
+        eps_cagr_10y: 0.10,
+        // No growths object - should use top-level values
+      }
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockMetrics),
+      })
+      render(<BigFivePanel api="http://localhost:8000" ticker="AAPL" />)
+      
+      await waitFor(() => {
+        // Revenue Growth card should render
+        expect(screen.getByText('Revenue Growth')).toBeInTheDocument()
+        // EPS Growth card should render
+        expect(screen.getByText('EPS Growth')).toBeInTheDocument()
+      })
+    })
+  })
 })
