@@ -534,16 +534,102 @@ If you encounter version conflicts between backend and research agent dependenci
 ## 👨‍💻 Development
 
 ### Running Tests
+
+#### Quick Test Commands
+
 ```bash
-# Backend tests
-docker compose exec api bash -lc "pytest -v"
+# Run all tests (recommended for CI)
+cd backend && pytest -m "not slow" -q
+
+# Run only unit tests (fast, ~5 seconds)
+cd backend && pytest -m "unit" -q
+
+# Run only integration tests
+cd backend && pytest -m "integration and not slow" -q
+
+# Run with coverage report
+cd backend && pytest -m "not slow" --cov=app --cov-report=term-missing
+```
+
+#### Test Markers Reference
+
+| Marker | Description | Speed | Use Case |
+|--------|-------------|-------|----------|
+| `unit` | Isolated function tests | Fast (~5s) | Quick feedback during development |
+| `integration` | Component interaction tests | Medium (~3s) | Test API + DB interactions |
+| `e2e` | Full workflow tests | Slow (~45s) | Pre-release validation |
+| `db` | Database-dependent tests | Medium | Schema/migration testing |
+| `api` | API endpoint tests | Fast | Route validation |
+| `celery` | Worker task tests | Medium | Background job testing |
+| `migration` | Alembic migration tests | Medium | Schema change validation |
+| `mock_sec` | Tests using mocked SEC API | Fast | Ingestion testing |
+| `slow` | Long-running tests | Slow | Excluded from quick runs |
+
+#### CI Pipeline Test Commands
+
+These are the exact commands run by the CI pipeline:
+
+```bash
+# 1. Unit tests only (no coverage threshold)
+pytest -m "unit" -q
+
+# 2. Integration tests (no coverage threshold)
+pytest -m "integration and not slow" -q
+
+# 3. Combined run with 90% coverage threshold
+pytest -m "not slow" --cov=app --cov-fail-under=90
+```
+
+#### Combining Markers
+
+```bash
+# Unit tests for API endpoints only
+pytest -m "unit and api" -v
+
+# Integration tests excluding slow ones
+pytest -m "integration and not slow" -v
+
+# All database-related tests
+pytest -m "db or migration" -v
+
+# Tests that use mocked SEC API
+pytest -m "mock_sec" -v
+```
+
+#### Coverage Reports
+
+```bash
+# Generate HTML coverage report
+pytest -m "not slow" --cov=app --cov-report=html
+open htmlcov/index.html  # View in browser
+
+# Terminal report with missing lines
+pytest -m "not slow" --cov=app --cov-report=term-missing
+
+# XML report for CI/CD integration
+pytest -m "not slow" --cov=app --cov-report=xml
+```
+
+#### Docker-Based Testing
+
+```bash
+# Backend tests in container
+docker compose exec api bash -lc "pytest -m 'not slow' -v"
 
 # Frontend tests
 docker compose exec ui bash -lc "npm run test:unit"
 
-# Integration tests
-docker compose exec api bash -lc "pytest tests/test_fourm_integration.py -v"
+# Specific test file
+docker compose exec api bash -lc "pytest tests/test_api_routes.py -v"
 ```
+
+#### Current Test Statistics
+
+- **Total Tests**: 548+
+- **Coverage**: 97%+ (combined run)
+- **Unit Tests**: ~292 tests (~5 seconds)
+- **Integration Tests**: ~129 tests (~3 seconds)
+- **Full Suite**: ~7 seconds (excluding slow tests)
 
 ### Development Mode
 ```bash

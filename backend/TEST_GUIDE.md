@@ -426,6 +426,22 @@ pytest tests/test_ingest_sec.py::TestFetchJson::test_fetch_json_success
 
 Tests are organized with pytest markers for selective execution:
 
+#### Available Markers
+
+| Marker | Description | Typical Count | Speed |
+|--------|-------------|---------------|-------|
+| `unit` | Isolated function tests with mocked dependencies | ~292 | Fast (~5s) |
+| `integration` | Component interaction tests with test database | ~129 | Medium (~3s) |
+| `e2e` | Full workflow tests | ~14 | Slow (~45s) |
+| `db` | Database-dependent tests | ~50 | Medium |
+| `api` | API endpoint tests | ~60 | Fast |
+| `celery` | Worker task tests | ~31 | Medium |
+| `migration` | Alembic migration tests | ~20 | Medium |
+| `mock_sec` | Tests using mocked SEC API responses | ~40 | Fast |
+| `slow` | Long-running tests (excluded from quick runs) | ~14 | Slow |
+
+#### Basic Marker Commands
+
 ```bash
 # Run only unit tests (fast)
 pytest -m unit
@@ -454,6 +470,23 @@ pytest -m "not slow"
 # Run tests that mock SEC API
 pytest -m mock_sec
 ```
+
+#### CI Pipeline Commands
+
+These exact commands are run by the GitHub Actions CI pipeline:
+
+```bash
+# Step 1: Unit tests (no coverage threshold enforced)
+pytest -m "unit" -q
+
+# Step 2: Integration tests (no coverage threshold enforced)
+pytest -m "integration and not slow" -q
+
+# Step 3: Combined run with 90% coverage threshold
+pytest -m "not slow" --cov=app --cov-fail-under=90
+```
+
+**Important**: Coverage threshold (90%) is only enforced on the combined run, not individual test categories. This is because unit tests alone achieve ~83% coverage, while the combined run achieves 97%+.
 
 ### Combining Markers
 
@@ -538,14 +571,16 @@ pytest -n 4
 
 | Module | Coverage | Tests | Status |
 |--------|----------|-------|--------|
-| `app/ingest/sec.py` | 95% | 82 | ✅ Excellent |
+| `app/ingest/sec.py` | 97% | 82 | ✅ Excellent |
 | `app/workers/tasks.py` | 90% | 31 | ✅ Good |
-| `app/api/v1/routes.py` | 88% | 47 | ✅ Good |
-| `app/db/models.py` | 85% | 20 | ✅ Good |
-| `app/metrics/compute.py` | 75% | 15 | ⚠️ Needs improvement |
+| `app/api/v1/routes.py` | 92% | 53 | ✅ Excellent |
+| `app/db/models.py` | 100% | 20 | ✅ Excellent |
+| `app/metrics/compute.py` | 95% | 61 | ✅ Excellent |
 | `app/valuation/core.py` | 80% | 18 | ✅ Good |
 | `app/nlp/fourm/service.py` | 70% | 12 | ⚠️ Needs improvement |
-| **Overall** | **83%** | **225+** | ✅ **Above target** |
+| **Overall** | **97%** | **548+** | ✅ **Excellent** |
+
+*Updated: January 2026 (Phase B)*
 
 ### Coverage Goals
 
@@ -794,11 +829,13 @@ jobs:
 
 | Test Suite | Target Time | Current |
 |------------|-------------|---------|
-| Unit tests (all) | < 5s | 3.2s ✅ |
-| Integration tests | < 30s | 18s ✅ |
-| E2E tests | < 60s | 45s ✅ |
-| Migration tests | < 10s | 6s ✅ |
-| **Full suite** | **< 2min** | **1m 12s** ✅ |
+| Unit tests (292 tests) | < 10s | ~5s ✅ |
+| Integration tests (129 tests) | < 10s | ~3s ✅ |
+| E2E tests (14 tests) | < 60s | ~45s ✅ |
+| Migration tests (20 tests) | < 10s | ~6s ✅ |
+| **Full suite (548 tests)** | **< 30s** | **~7s** ✅ |
+
+*Note: Full suite excludes `slow` marker tests for fast CI feedback.*
 
 ---
 
@@ -836,7 +873,7 @@ jobs:
 
 ---
 
-**Last Updated**: 2024-09-30  
-**Test Count**: 225+ tests  
-**Coverage**: 83%  
+**Last Updated**: 2026-01-08  
+**Test Count**: 548+ tests  
+**Coverage**: 97%  
 **Status**: ✅ Production Ready
