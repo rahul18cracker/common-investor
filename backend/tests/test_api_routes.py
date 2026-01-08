@@ -694,6 +694,128 @@ class TestQualityScoresEndpoint:
 # Integration Tests: Phase C Four Ms Endpoint Enhancements
 # =============================================================================
 
+# =============================================================================
+# Integration Tests: Phase D API Extensions
+# =============================================================================
+
+@pytest.mark.integration
+@pytest.mark.api
+@pytest.mark.db
+@pytest.mark.mock_sec
+class TestMetricsEndpointPhaseD:
+    """Integration tests for Phase D /metrics endpoint enhancements."""
+
+    def test_metrics_includes_extended_growths(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that /metrics includes extended growth metrics."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/metrics")
+        assert response.status_code == 200
+        
+        data = response.json()
+        
+        # Verify extended growths
+        assert "growths_extended" in data
+        extended = data["growths_extended"]
+        assert "rev_cagr_1y" in extended
+        assert "rev_cagr_3y" in extended
+        assert "rev_cagr_5y" in extended
+        assert "rev_cagr_10y" in extended
+
+    def test_metrics_includes_volatility_and_persistence(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that /metrics includes revenue volatility and ROIC persistence."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/metrics")
+        data = response.json()
+        
+        assert "revenue_volatility" in data
+        assert "roic_persistence_score" in data
+        assert "latest_gross_margin" in data
+
+
+@pytest.mark.integration
+@pytest.mark.api
+@pytest.mark.db
+@pytest.mark.mock_sec
+class TestTimeseriesEndpointPhaseD:
+    """Integration tests for Phase D /timeseries endpoint enhancements."""
+
+    def test_timeseries_includes_gross_margin(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that /timeseries includes gross_margin series."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/timeseries")
+        assert response.status_code == 200
+        
+        data = response.json()
+        
+        assert "gross_margin" in data
+        assert "net_debt" in data
+        assert "share_count" in data
+
+
+@pytest.mark.integration
+@pytest.mark.api
+@pytest.mark.db
+@pytest.mark.mock_sec
+class TestAgentBundleEndpoint:
+    """Integration tests for Phase D /agent-bundle endpoint."""
+
+    def test_agent_bundle_returns_all_sections(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that /agent-bundle returns all required sections."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/agent-bundle")
+        assert response.status_code == 200
+        
+        data = response.json()
+        
+        # Verify all top-level sections
+        assert "company" in data
+        assert "metrics" in data
+        assert "quality_scores" in data
+        assert "four_ms" in data
+        assert "timeseries" in data
+
+    def test_agent_bundle_company_info(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that /agent-bundle includes company info."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/agent-bundle")
+        data = response.json()
+        
+        company = data["company"]
+        assert "cik" in company
+        assert "ticker" in company
+        assert "name" in company
+
+    def test_agent_bundle_four_ms_complete(self, client, db_session, mock_httpx_client, mock_sec_company_facts):
+        """Test that /agent-bundle four_ms section is complete."""
+        from app.ingest.sec import ingest_companyfacts_richer_by_ticker
+        
+        ingest_companyfacts_richer_by_ticker("MSFT")
+        
+        response = client.get("/api/v1/company/MSFT/agent-bundle")
+        data = response.json()
+        
+        four_ms = data["four_ms"]
+        assert "moat" in four_ms
+        assert "management" in four_ms
+        assert "balance_sheet_resilience" in four_ms
+        assert "mos_recommendation" in four_ms
+
+
 @pytest.mark.integration
 @pytest.mark.api
 @pytest.mark.db

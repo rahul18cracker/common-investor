@@ -311,11 +311,19 @@ def latest_owner_earnings_growth(cik: str) -> Optional[float]:
 
 
 def timeseries_all(cik: str):
+    """
+    Return all time series data for charts.
+    
+    Phase D enhancement: Added gross_margin and net_debt series.
+    """
     return {
         "is": revenue_eps_series(cik),
         "owner_earnings": owner_earnings_series(cik),
         "roic": roic_series(cik),
         "coverage": coverage_series(cik),
+        "gross_margin": gross_margin_series(cik),
+        "net_debt": net_debt_series(cik),
+        "share_count": share_count_trend(cik),
     }
 
 

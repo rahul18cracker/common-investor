@@ -7,11 +7,15 @@ from app.core.utils import safe_float, safe_int, get_company_cik
 from app.workers.tasks import enqueue_ingest
 from app.metrics.compute import (
     compute_growth_metrics,
+    compute_growth_metrics_extended,
     timeseries_all,
     roic_average,
     latest_debt_to_equity,
     latest_owner_earnings_growth,
     quality_scores,
+    revenue_volatility,
+    roic_persistence_score,
+    gross_margin_series,
 )
 from app.valuation.service import run_default_scenario
 from app.nlp.fourm.service import (
@@ -161,18 +165,38 @@ def company_summary(ticker: str):
 
 @router.get("/company/{ticker}/metrics")
 def get_metrics(ticker: str):
+    """
+    Get key financial metrics for a company.
+    
+    Phase D enhancements:
+    - Extended growth metrics with 1y/3y/5y/10y CAGR windows
+    - Revenue volatility (cyclicality indicator)
+    - ROIC persistence score (0-5)
+    - Latest gross margin
+    """
     cik = get_company_cik(ticker)
     growths = compute_growth_metrics(cik)
+    growths_extended = compute_growth_metrics_extended(cik)
     roic_avg_10y = roic_average(cik, years=10)
     debt_to_equity = latest_debt_to_equity(cik)
     fcf_growth = latest_owner_earnings_growth(cik)
+    rev_volatility = revenue_volatility(cik)
+    roic_persist = roic_persistence_score(cik)
+    
+    # Get latest gross margin
+    gm_series = gross_margin_series(cik)
+    latest_gm = gm_series[-1]["gross_margin"] if gm_series and gm_series[-1].get("gross_margin") else None
 
     return {
         "cik": cik,
         "growths": growths,
+        "growths_extended": growths_extended,
         "roic_avg_10y": roic_avg_10y,
         "debt_to_equity": debt_to_equity,
         "fcf_growth": fcf_growth,
+        "revenue_volatility": rev_volatility,
+        "roic_persistence_score": roic_persist,
+        "latest_gross_margin": latest_gm,
     }
 
 
@@ -201,6 +225,51 @@ def get_quality_scores(ticker: str):
     """
     cik = get_company_cik(ticker)
     return quality_scores(cik)
+
+
+@router.get("/company/{ticker}/agent-bundle")
+def get_agent_bundle(ticker: str):
+    """
+    D4: Return all quantitative data in agent-ready format for qualitative analysis.
+    
+    This endpoint aggregates all metrics, scores, and time series data that the
+    qualitative analysis agent needs to produce its JSON outputs (moat.json,
+    unit_economics.json, peers.json, risks.json, thesis.json).
+    """
+    cik = get_company_cik(ticker)
+    
+    # Get company info
+    row = execute(
+        "SELECT c.id, c.ticker, c.name FROM company c WHERE c.cik=:cik",
+        cik=cik,
+    ).first()
+    company_info = {
+        "cik": cik,
+        "ticker": row[1] if row else ticker.upper(),
+        "name": row[2] if row else None,
+    }
+    
+    # Aggregate all quantitative data
+    return {
+        "company": company_info,
+        "metrics": {
+            "growths": compute_growth_metrics(cik),
+            "growths_extended": compute_growth_metrics_extended(cik),
+            "roic_avg_10y": roic_average(cik, years=10),
+            "debt_to_equity": latest_debt_to_equity(cik),
+            "fcf_growth": latest_owner_earnings_growth(cik),
+            "revenue_volatility": revenue_volatility(cik),
+            "roic_persistence_score": roic_persistence_score(cik),
+        },
+        "quality_scores": quality_scores(cik),
+        "four_ms": {
+            "moat": compute_moat(cik),
+            "management": compute_management(cik),
+            "balance_sheet_resilience": compute_balance_sheet_resilience(cik),
+            "mos_recommendation": compute_margin_of_safety_recommendation(cik),
+        },
+        "timeseries": timeseries_all(cik),
+    }
 
 
 class ValuationRequest(BaseModel):
