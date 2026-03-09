@@ -48,6 +48,7 @@ IS_TAGS = {
     ],
     "sga": [
         "SellingGeneralAndAdministrativeExpense",
+        "SellingAndMarketingExpense",
         "GeneralAndAdministrativeExpense",
     ],
     "rnd": [
@@ -94,7 +95,11 @@ CF_TAGS = {
         "PaymentsToAcquireProductiveAssets",
     ],
     "buybacks": ["PaymentsForRepurchaseOfCommonStock"],
-    "dividends": ["PaymentsOfDividends"],
+    "dividends": [
+        "PaymentsOfDividends",
+        "PaymentsOfDividendsCommonStock",
+        "PaymentsOfOrdinaryDividends",
+    ],
     "acquisitions": ["PaymentsToAcquireBusinessesNetOfCashAcquired"],
 }
 
@@ -203,10 +208,22 @@ def upsert_filing(
 
 
 def _pick_first_units(facts: dict, tag_list: list[str]) -> dict | None:
+    """Return units dict for the first tag that has 10-K/20-F annual data.
+
+    Previous behavior picked the first tag that merely existed, even if it
+    only contained quarterly data or data from old years. This caused NULLs
+    for companies that switched XBRL tags over time (e.g., MSFT moved from
+    CostOfRevenue to CostOfGoodsAndServicesSold).
+    """
     f = facts.get("facts", {}).get("us-gaap", {})
     for t in tag_list:
-        if t in f:
-            return f[t]["units"]
+        if t not in f:
+            continue
+        units = f[t]["units"]
+        # Check if any unit key has at least one 10-K/20-F entry
+        for unit_key, entries in units.items():
+            if any(e.get("form") in ("10-K", "20-F") for e in entries):
+                return units
     return None
 
 

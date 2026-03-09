@@ -12,7 +12,13 @@ def run_default_scenario(ticker: str, mos_pct: float = 0.5, g_override: float | 
     if not cik: raise ValueError("Unknown ticker; ingest first.")
     eps0 = latest_eps(cik)
     growths = compute_growth_metrics(cik)
-    g = g_override if g_override is not None else (growths.get("eps_cagr_5y") or growths.get("rev_cagr_5y") or growths.get("eps_cagr_10y") or growths.get("rev_cagr_10y") or 0.10)
+    # BUG-1 fix: or-chain treated g=0.0 as falsy; use explicit None checks
+    g = g_override if g_override is not None else next(
+        (v for v in (growths.get("eps_cagr_5y"), growths.get("rev_cagr_5y"),
+                     growths.get("eps_cagr_10y"), growths.get("rev_cagr_10y"))
+         if v is not None),
+        0.10
+    )
     if eps0 is None: raise ValueError("Missing EPS; cannot compute sticker. Ingest fuller statements.")
     inputs = StickerInputs(eps0=eps0, g=float(g), pe_cap=pe_cap, discount=discount)
     sticker = sticker_and_mos(inputs, mos_pct=mos_pct)

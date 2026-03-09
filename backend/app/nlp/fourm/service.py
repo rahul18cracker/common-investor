@@ -210,8 +210,10 @@ def compute_management(cik: str) -> dict:
     payout = [x["payout_ratio"] for x in items if x["payout_ratio"] is not None]
     def band_score(x, low, high):
         if x is None: return None
-        if x < low: return x/low * 0.7
-        if x > high: return max(0.0, 1.0 - (x-high)/(2*high))
+        if low > 0 and x < low: return x/low * 0.7
+        if x < low: return 0.0  # low=0 case: below band floor
+        if high > 0 and x > high: return max(0.0, 1.0 - (x-high)/(2*high))
+        if x > high: return 0.0  # safety fallback
         return 1.0
     scores = []
     if reinvest: scores.append(mean([band_score(x, 0.3, 0.7) for x in reinvest if x is not None]))
@@ -327,7 +329,12 @@ def compute_margin_of_safety_recommendation(cik: str) -> dict:
     moat_s = moat.get("score") or 0.5
     mgmt_s = mgmt.get("score") or 0.5
     bs_s = balance_sheet.get("score")
-    g = growths.get("eps_cagr_5y") or growths.get("rev_cagr_5y") or 0.10
+    # BUG-1 fix: or-chain treated g=0.0 as falsy; use explicit None checks
+    g = next(
+        (v for v in (growths.get("eps_cagr_5y"), growths.get("rev_cagr_5y"))
+         if v is not None),
+        0.10
+    )
     
     base = 0.5
     adj = 0.0
