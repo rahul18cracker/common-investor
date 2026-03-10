@@ -59,6 +59,7 @@ celerybeat.pid
 # Virtual environments (additional patterns)
 venv-*/
 .venv/
+.venv-*/
 
 # Build artifacts
 dist/
