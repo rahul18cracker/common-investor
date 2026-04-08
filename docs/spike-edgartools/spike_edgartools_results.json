@@ -1,0 +1,103 @@
+{
+  "summaries": {
+    "MSFT": {
+      "nulls_before": 35,
+      "nulls_after": 10,
+      "new": 30,
+      "regressions": 5,
+      "matches": 75,
+      "mismatches": 5,
+      "both_null": 5
+    },
+    "AAPL": {
+      "nulls_before": 28,
+      "nulls_after": 5,
+      "new": 27,
+      "regressions": 4,
+      "matches": 81,
+      "mismatches": 7,
+      "both_null": 1
+    },
+    "JPM": {
+      "nulls_before": 64,
+      "nulls_after": 42,
+      "new": 22,
+      "regressions": 0,
+      "matches": 45,
+      "mismatches": 11,
+      "both_null": 42
+    },
+    "XOM": {
+      "nulls_before": 43,
+      "nulls_after": 20,
+      "new": 23,
+      "regressions": 0,
+      "matches": 71,
+      "mismatches": 6,
+      "both_null": 20
+    },
+    "NEE": {
+      "nulls_before": 50,
+      "nulls_after": 49,
+      "new": 6,
+      "regressions": 5,
+      "matches": 56,
+      "mismatches": 9,
+      "both_null": 44
+    },
+    "SBUX": {
+      "nulls_before": 27,
+      "nulls_after": 22,
+      "new": 12,
+      "regressions": 6,
+      "matches": 77,
+      "mismatches": 10,
+      "both_null": 15
+    },
+    "MCD": {
+      "nulls_before": 39,
+      "nulls_after": 30,
+      "new": 10,
+      "regressions": 1,
+      "matches": 77,
+      "mismatches": 3,
+      "both_null": 29
+    },
+    "O": {
+      "nulls_before": 58,
+      "nulls_after": 36,
+      "new": 27,
+      "regressions": 5,
+      "matches": 50,
+      "mismatches": 7,
+      "both_null": 31
+    },
+    "LMT": {
+      "nulls_before": 28,
+      "nulls_after": 18,
+      "new": 23,
+      "regressions": 13,
+      "matches": 71,
+      "mismatches": 8,
+      "both_null": 5
+    },
+    "CRM": {
+      "nulls_before": 23,
+      "nulls_after": 18,
+      "new": 5,
+      "regressions": 0,
+      "matches": 68,
+      "mismatches": 29,
+      "both_null": 18
+    }
+  },
+  "total": {
+    "nulls_before": 395,
+    "nulls_after": 250,
+    "new": 185,
+    "regressions": 39,
+    "matches": 671,
+    "mismatches": 95,
+    "both_null": 210
+  }
+}
