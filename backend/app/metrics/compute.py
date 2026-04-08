@@ -230,7 +230,9 @@ def roic_series(cik: str) -> List[Dict]:
                 tax_rate = max(0.0, min(0.35, taxes / abs(ebit)))
             nopat = ebit * (1.0 - (tax_rate if tax_rate is not None else 0.21))
             inv_cap = equity + debt - cash
-            if inv_cap != 0:
+            # BUG-3 fix: negative invested capital (negative equity companies
+            # like SBUX, MCD, LMT) produces meaningless ROIC — emit None
+            if inv_cap > 0:
                 roic = nopat / inv_cap
         out.append({"fy": fy, "roic": roic})
     return out
@@ -341,7 +343,8 @@ def latest_debt_to_equity(cik: str) -> Optional[float]:
     if not rows or not rows[0] or not rows[1]:
         return None
     debt, equity = float(rows[0]), float(rows[1])
-    if equity == 0:
+    # BUG-3 fix: negative equity (SBUX, MCD, LMT) produces meaningless D/E — return None
+    if equity <= 0:
         return None
     return debt / equity
 
