@@ -27,80 +27,169 @@ def company_facts(cik: int) -> dict:
     return fetch_json(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json")
 
 
+# ── XBRL tag fallback lists ──────────────────────────────────────────
+# Enriched from edgartools concept_mappings.json (MIT, 32K-filing study)
+# and spike comparison across 10 industries. Tags are tried in order;
+# _pick_first_units() returns the first that has 10-K/20-F data.
+#
+# See docs/spike-edgartools/SPIKE_EDGARTOOLS_REPORT.md for rationale.
+
 IS_TAGS = {
     "revenue": [
         "RevenueFromContractWithCustomerExcludingAssessedTax",
-        "SalesRevenueNet",
-        "Revenues",
         "RevenueFromContractWithCustomerIncludingAssessedTax",
+        "Revenues",
+        "SalesRevenueNet",
+        "Revenue",
+        "OperatingRevenue",
         "SalesRevenueGoodsNet",
         "SalesRevenueServicesNet",
         "RevenuesNetOfInterestExpense",
+        "InterestAndDividendIncomeOperating",   # banks
     ],
     "cogs": [
         "CostOfGoodsAndServicesSold",
         "CostOfRevenue",
         "CostOfGoodsSold",
         "CostOfServices",
+        "CostOfSales",
+        "CostOfGoodsAndServiceExcludingDepreciationDepletionAndAmortization",
+        "DirectOperatingCosts",
     ],
     "gross_profit": [
         "GrossProfit",
     ],
     "sga": [
         "SellingGeneralAndAdministrativeExpense",
-        "SellingAndMarketingExpense",
-        "GeneralAndAdministrativeExpense",
+        # NOTE: if this tag misses, _resolve_sga_sum() will try summing
+        # SellingAndMarketingExpense + GeneralAndAdministrativeExpense
     ],
     "rnd": [
         "ResearchAndDevelopmentExpense",
+        "ResearchAndDevelopmentCosts",
+        "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost",
+        "ResearchAndDevelopmentExpenseSoftwareExcludingAcquiredInProcessCost",
     ],
     "depreciation": [
         "DepreciationDepletionAndAmortization",
         "DepreciationAndAmortization",
         "Depreciation",
+        "DepreciationAmortizationAndAccretionNet",
     ],
-    "ebit": ["OperatingIncomeLoss"],
-    "interest_expense": ["InterestExpense"],
-    "taxes": ["IncomeTaxExpenseBenefit"],
-    "net_income": ["NetIncomeLoss"],
-    "eps_diluted": ["EarningsPerShareDiluted", "EarningsPerShareBasic"],
+    "ebit": [
+        "OperatingIncomeLoss",
+        "OperatingIncome",
+        "IncomeLossFromContinuingOperationsBeforeInterestAndTaxes",
+    ],
+    "interest_expense": [
+        "InterestExpense",
+        "InterestAndDebtExpense",
+        "InterestExpenseDebt",
+        "InterestIncomeExpenseNet",
+    ],
+    "taxes": [
+        "IncomeTaxExpenseBenefit",
+        "IncomeTaxesPaidNet",
+    ],
+    "net_income": [
+        "NetIncomeLoss",
+        "NetIncome",
+        "ProfitLoss",
+    ],
+    "eps_diluted": [
+        "EarningsPerShareDiluted",
+        "EarningsPerShareBasic",
+    ],
     "shares_diluted": [
         "WeightedAverageNumberOfDilutedSharesOutstanding",
         "WeightedAverageNumberOfSharesOutstandingBasic",
     ],
 }
+
+# SGA component tags for summing when combined tag is missing (MSFT, etc.)
+SGA_COMPONENT_TAGS = [
+    ["SellingAndMarketingExpense", "GeneralAndAdministrativeExpense"],
+    ["SellingExpense", "GeneralAndAdministrativeExpense"],
+    ["MarketingExpense", "GeneralAndAdministrativeExpense"],
+]
+
 BS_TAGS = {
-    "cash": ["CashAndCashEquivalentsAtCarryingValue"],
-    "receivables": ["ReceivablesNetCurrent", "AccountsReceivableNetCurrent"],
-    "inventory": ["InventoryNet"],
-    "total_assets": ["Assets"],
-    "total_liabilities": ["Liabilities"],
+    "cash": [
+        "CashAndCashEquivalentsAtCarryingValue",
+        "CashEquivalentsAtCarryingValue",
+        "Cash",
+        "CashCashEquivalentsAndShortTermInvestments",
+    ],
+    "receivables": [
+        "AccountsReceivableNetCurrent",
+        "ReceivablesNetCurrent",
+        "AccountsReceivableNet",
+        "AccountsReceivableGross",
+    ],
+    "inventory": [
+        "InventoryNet",
+        "InventoryGross",
+        "InventoryFinishedGoods",
+    ],
+    "total_assets": [
+        "Assets",
+        "AssetsTotal",
+    ],
+    "total_liabilities": [
+        "Liabilities",
+        "LiabilitiesTotal",
+    ],
     "total_debt": [
         "LongTermDebt",
-        "LongTermDebtNoncurrent",
-        "LongTermDebtCurrent",
-        "DebtCurrent",
-        "ShortTermBorrowings",
+        # NOTE: if this tag misses, _resolve_total_debt_sum() will try
+        # summing LongTermDebtNoncurrent + LongTermDebtCurrent
     ],
     "shareholder_equity": [
-        "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
         "StockholdersEquity",
+        "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+        "StockholdersEquityAttributableToParent",
+        "EquityAttributableToParent",
     ],
 }
+
+# Debt component tags for summing when combined LongTermDebt tag is missing
+DEBT_COMPONENT_TAGS = [
+    ["LongTermDebtNoncurrent", "LongTermDebtCurrent"],
+    ["LongTermDebtNoncurrent", "ShortTermBorrowings"],
+    ["LongTermDebtNoncurrent", "DebtCurrent"],
+]
+
+# Depreciation fallback: look in CF adjustments if not on IS
+DEPRECIATION_CF_TAGS = [
+    "DepreciationDepletionAndAmortization",
+    "DepreciationAndAmortization",
+    "Depreciation",
+    "DepreciationAmortizationAndAccretionNet",
+]
+
 CF_TAGS = {
-    "cfo": ["NetCashProvidedByUsedInOperatingActivities"],
+    "cfo": [
+        "NetCashProvidedByUsedInOperatingActivities",
+        "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+    ],
     "capex": [
         "PaymentsToAcquirePropertyPlantAndEquipment",
         "CapitalExpenditures",
         "PaymentsToAcquireProductiveAssets",
     ],
-    "buybacks": ["PaymentsForRepurchaseOfCommonStock"],
+    "buybacks": [
+        "PaymentsForRepurchaseOfCommonStock",
+        "PaymentsForRepurchaseOfEquity",
+    ],
     "dividends": [
         "PaymentsOfDividends",
         "PaymentsOfDividendsCommonStock",
         "PaymentsOfOrdinaryDividends",
     ],
-    "acquisitions": ["PaymentsToAcquireBusinessesNetOfCashAcquired"],
+    "acquisitions": [
+        "PaymentsToAcquireBusinessesNetOfCashAcquired",
+        "PaymentsToAcquireBusinessesAndInterestInAffiliates",
+    ],
 }
 
 STATEMENT_SCHEMAS = {
@@ -227,6 +316,32 @@ def _pick_first_units(facts: dict, tag_list: list[str]) -> dict | None:
     return None
 
 
+def _sum_annual_values(facts: dict, tag_groups: list[list[str]], unit_key: str, fy: int) -> float | None:
+    """Sum values from multiple XBRL tags for a fiscal year.
+
+    Tries each group in order. Within a group, ALL tags must have data
+    for the sum to be valid. Returns the first successful group sum.
+    Used for SGA (selling + G&A) and total_debt (LT + ST).
+    """
+    f = facts.get("facts", {}).get("us-gaap", {})
+    for group in tag_groups:
+        total = 0.0
+        all_found = True
+        for tag in group:
+            if tag not in f:
+                all_found = False
+                break
+            units = f[tag].get("units", {})
+            val = _annual_value(units, unit_key, fy)
+            if val is None:
+                all_found = False
+                break
+            total += val
+        if all_found:
+            return total
+    return None
+
+
 def _annual_value(units: dict, unit_key: str, fy: int) -> float | None:
     if not units or unit_key not in units:
         return None
@@ -247,31 +362,49 @@ def _annual_value(units: dict, unit_key: str, fy: int) -> float | None:
     return best
 
 
-def _insert_statement(filing_id: int, fy: int, stmt_type: str, units_cache: dict):
+def _insert_statement(filing_id: int, fy: int, stmt_type: str, units_cache: dict,
+                      facts: dict | None = None):
     """Generic statement insertion using schema configuration.
-    
+
     Args:
         filing_id: ID of the filing record
         fy: Fiscal year
         stmt_type: Statement type key ('is', 'bs', or 'cf')
         units_cache: Nested dict with units data for each statement type
+        facts: Raw CompanyFacts JSON for fallback summing logic
     """
     schema = STATEMENT_SCHEMAS[stmt_type]
     table = schema["table"]
     fields = schema["fields"]
     units_map = schema["units"]
-    
+
     # Build field values dynamically
     values = {"filing_id": filing_id, "fy": fy}
     for field in fields:
         unit_key = units_map[field]
         values[field] = _annual_value(units_cache[stmt_type][field], unit_key, fy)
-    
+
+    # ── Fallback enrichment (Option B from edgartools spike) ─────
+    if facts is not None:
+        # SGA: if combined tag missed, sum selling + G&A components
+        if stmt_type == "is" and values.get("sga") is None:
+            values["sga"] = _sum_annual_values(facts, SGA_COMPONENT_TAGS, "USD", fy)
+
+        # total_debt: if combined LongTermDebt missed, sum LT noncurrent + current
+        if stmt_type == "bs" and values.get("total_debt") is None:
+            values["total_debt"] = _sum_annual_values(facts, DEBT_COMPONENT_TAGS, "USD", fy)
+
+        # depreciation: if not on IS, look in CF adjustment section
+        if stmt_type == "is" and values.get("depreciation") is None:
+            depr_units = _pick_first_units(facts, DEPRECIATION_CF_TAGS)
+            if depr_units:
+                values["depreciation"] = _annual_value(depr_units, "USD", fy)
+
     # Build SQL dynamically
     field_names = ", ".join(["filing_id", "fy"] + fields)
     placeholders = ", ".join([f":{name}" for name in ["filing_id", "fy"] + fields])
     sql = f"INSERT INTO {table} ({field_names}) VALUES ({placeholders})"
-    
+
     execute(sql, **values)
 
 
@@ -312,7 +445,7 @@ def ingest_companyfacts_richer_by_ticker(ticker: str):
             accession=f"FACTS-{cik}-{fy}",
             period_end=f"{fy}-12-31",
         )
-        _insert_statement(filing_id, fy, "is", units_cache)
-        _insert_statement(filing_id, fy, "bs", units_cache)
-        _insert_statement(filing_id, fy, "cf", units_cache)
+        _insert_statement(filing_id, fy, "is", units_cache, facts=facts)
+        _insert_statement(filing_id, fy, "bs", units_cache, facts=facts)
+        _insert_statement(filing_id, fy, "cf", units_cache, facts=facts)
     return {"ticker": ticker.upper(), "cik": f"{cik:010d}", "years": years}
