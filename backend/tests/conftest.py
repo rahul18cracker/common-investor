@@ -452,7 +452,23 @@ def mock_sec_company_facts():
 
 
 @pytest.fixture
-def mock_httpx_client(httpx_mock, mock_sec_company_tickers, mock_sec_company_facts):
+def mock_sec_submissions():
+    """
+    Mock SEC submissions API response with SIC code and fiscal year end.
+    """
+    return {
+        "cik": "789019",
+        "entityType": "operating",
+        "sic": "7372",
+        "sicDescription": "SERVICES-PREPACKAGED SOFTWARE",
+        "category": "Large accelerated filer",
+        "fiscalYearEnd": "0630",
+        "name": "MICROSOFT CORPORATION",
+    }
+
+
+@pytest.fixture
+def mock_httpx_client(httpx_mock, mock_sec_company_tickers, mock_sec_company_facts, mock_sec_submissions):
     """
     Mock HTTP client for SEC API calls.
     """
@@ -461,16 +477,22 @@ def mock_httpx_client(httpx_mock, mock_sec_company_tickers, mock_sec_company_fac
         url="https://www.sec.gov/files/company_tickers.json",
         json=mock_sec_company_tickers,
     )
-    
-    # Mock company facts endpoint for MSFT  
+
+    # Mock company facts endpoint for MSFT
     httpx_mock.add_response(
         url="https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json",
         json=mock_sec_company_facts,
     )
-    
+
+    # Mock submissions endpoint for MSFT
+    httpx_mock.add_response(
+        url="https://data.sec.gov/submissions/CIK0000789019.json",
+        json=mock_sec_submissions,
+    )
+
     # Allow un-matched requests to avoid errors
     httpx_mock.non_mocked_hosts = []
-    
+
     return httpx_mock
 
 

@@ -132,7 +132,15 @@ class TestEndToEndIngestionPipeline:
             url="https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json",
             json={"cik": 789019, "entityName": "MICROSOFT CORPORATION", "facts": {}}
         )
-        
+        httpx_mock.add_response(
+            url="https://data.sec.gov/submissions/CIK0000789019.json",
+            json={"sic": "7372", "sicDescription": "SERVICES-PREPACKAGED SOFTWARE", "fiscalYearEnd": "0630"}
+        )
+        httpx_mock.add_response(
+            url="https://data.sec.gov/submissions/CIK0000789019.json",
+            json={"sic": "7372", "sicDescription": "SERVICES-PREPACKAGED SOFTWARE", "fiscalYearEnd": "0630"}
+        )
+
         # First ingestion
         response1 = client.post(f"/api/v1/company/{ticker}/ingest")
         assert response1.status_code == 200
@@ -193,7 +201,20 @@ class TestEndToEndIngestionPipeline:
             url="https://data.sec.gov/api/xbrl/companyfacts/CIK0001018724.json",
             json={"cik": 1018724, "entityName": "AMAZON COM INC", "facts": {}}
         )
-        
+        # Submissions mocks for SIC code + fiscal year end
+        httpx_mock.add_response(
+            url="https://data.sec.gov/submissions/CIK0000789019.json",
+            json={"sic": "7372", "sicDescription": "SERVICES-PREPACKAGED SOFTWARE", "fiscalYearEnd": "0630"}
+        )
+        httpx_mock.add_response(
+            url="https://data.sec.gov/submissions/CIK0000320193.json",
+            json={"sic": "3571", "sicDescription": "ELECTRONIC COMPUTERS", "fiscalYearEnd": "0930"}
+        )
+        httpx_mock.add_response(
+            url="https://data.sec.gov/submissions/CIK0001018724.json",
+            json={"sic": "5961", "sicDescription": "RETAIL-CATALOG & MAIL-ORDER HOUSES", "fiscalYearEnd": "1231"}
+        )
+
         # Trigger all ingestions
         responses = []
         for ticker in tickers:

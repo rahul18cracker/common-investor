@@ -47,3 +47,21 @@ they are expected behaviors that should not be flagged as anomalies.
 
 - A company with g=0.0 is valid. Previously BUG-1 treated 0.0 as falsy in the or-chain.
   Fixed in Phase 1A: uses `is not None` checks instead of truthiness.
+
+## SIC Code Mapping (Phase 1B)
+
+- SIC codes come from the SEC submissions endpoint (`/submissions/CIK{cik}.json`).
+- `sic_to_category()` checks specific ranges first (banking 6000-6199, tech 7372-7374, etc.) before broad SIC division ranges (manufacturing 2000-3999, services 7000-8999).
+- If the submissions endpoint fails, ingestion still succeeds — SIC fields are NULL but financial data is unaffected.
+- `industry_notes` are plain-English guidance strings for the agent, NOT suppression logic.
+
+## Negative Equity and ROE (Phase 1C)
+
+- `roe_series()` uses the same guard as `roic_series()`: returns None when equity <= 0.
+- This is correct for SBUX, MCD, LMT — negative equity from buybacks makes ROE meaningless.
+
+## Cash Conversion Caveats
+
+- `cash_conversion_series()` = CFO / Net Income. Values > 1.0 are good (high-quality earnings).
+- For banks and REITs, cash conversion is less meaningful — their CFO includes different items.
+- A negative ratio (positive CFO, negative NI) is valid and informative but shouldn't be scored.

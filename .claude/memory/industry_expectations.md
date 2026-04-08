@@ -46,3 +46,32 @@ Legend: YES = expect populated, no = expect NULL, maybe = depends on company
 | D/E           | 0.3-1.5  | 5-15   | 2-8    | 1-5      | 0.5-3    | 0.3-1  | 1-3       | 0.3-1.5    | 0.5-2    |
 
 These ranges are guidelines, not hard rules. Flag values outside 2x the range as anomalies.
+
+## SIC Code Ranges (Phase 1B)
+
+| Category              | SIC Range   | Examples           |
+|-----------------------|-------------|--------------------|
+| technology (software) | 7372-7374   | MSFT, CRM, NOW     |
+| technology (hardware) | 3571-3672   | AAPL               |
+| banking               | 6000-6199   | JPM, BAC           |
+| reits                 | 6500-6599   | O, SPG             |
+| utilities             | 4911-4991   | NEE, DUK           |
+| energy                | 1311-1389   | XOM, CVX           |
+| pharma                | 2830-2836   | JNJ                |
+| defense               | 3760-3769   | LMT, RTX           |
+| securities            | 6200-6399   |                    |
+| manufacturing (broad) | 2000-3999   |                    |
+| retail (broad)        | 5200-5999   | AMZN (5961)        |
+| services (broad)      | 7000-8999   | UNH (8000s)        |
+
+## Phase 1C Metric Ranges by Industry
+
+| Metric              | Tech     | Banks  | REITs  | Defense | Consumer | Energy  | Utilities | Healthcare | SaaS    |
+|---------------------|----------|--------|--------|---------|----------|---------|-----------|------------|---------|
+| Operating margin    | 25-45%   | 30-45% | 25-40% | 10-15%  | 10-25%   | 10-20%  | 15-25%    | 15-30%     | 10-25%  |
+| FCF margin          | 20-35%   | skip   | skip   | 5-12%   | 5-15%    | 5-15%   | skip      | 10-25%     | 15-30%  |
+| Cash conversion     | 1.0-1.5  | skip   | skip   | 1.0-1.3 | 0.8-1.3  | 0.8-1.5 | skip      | 0.9-1.4    | 1.0-2.0 |
+| ROE                 | 20-50%   | 10-18% | 5-15%  | 30-80%  | varies*  | 10-25%  | 8-14%     | 15-35%     | 10-30%  |
+
+*Consumer ROE: companies with negative equity (SBUX, MCD) return None — this is correct.
+FCF margin / cash conversion for banks, REITs, utilities: less meaningful due to business model.

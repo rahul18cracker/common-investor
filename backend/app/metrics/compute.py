@@ -401,6 +401,10 @@ def timeseries_all(cik: str) -> Dict[str, List[Dict]]:
         "gross_margin": gross_margin_series(cik),
         "net_debt": net_debt_series(cik),
         "share_count": share_count_trend(cik),
+        "operating_margin": operating_margin_series(cik),
+        "fcf_margin": fcf_margin_series(cik),
+        "cash_conversion": cash_conversion_series(cik),
+        "roe": roe_series(cik),
     }
 
 
@@ -655,3 +659,124 @@ def quality_scores(cik: str) -> Dict:
         "avg_share_dilution_3y": avg_dilution,
         "roic_persistence_score": roic_score,
     }
+
+
+# =============================================================================
+# Phase 1C: Enriched Quantitative Metrics
+# =============================================================================
+
+
+def operating_margin_series(cik: str) -> List[Dict]:
+    """EBIT / Revenue per fiscal year.
+
+    Operating margin measures how much profit a company makes on each dollar
+    of revenue after paying variable costs of production (but before interest
+    and taxes).
+    """
+    rows = execute(
+        """
+        SELECT si.fy, si.revenue, si.ebit
+        FROM statement_is si JOIN filing f ON si.filing_id=f.id
+        WHERE f.cik=:cik AND si.fy IS NOT NULL
+        ORDER BY si.fy ASC
+    """,
+        cik=cik,
+    ).fetchall()
+
+    out = []
+    for fy, revenue, ebit in rows:
+        margin = None
+        rev = float(revenue) if revenue is not None else None
+        eb = float(ebit) if ebit is not None else None
+        if rev and rev != 0 and eb is not None:
+            margin = eb / rev
+        out.append({"fy": int(fy), "operating_margin": margin})
+    return out
+
+
+def fcf_margin_series(cik: str) -> List[Dict]:
+    """(CFO - CapEx) / Revenue per fiscal year.
+
+    FCF margin measures how much of each revenue dollar converts to free cash
+    flow. Higher is better. Requires joining IS (revenue) with CF (cfo, capex).
+    """
+    rows = execute(
+        """
+        SELECT si.fy, si.revenue, cf.cfo, cf.capex
+        FROM filing f
+        JOIN statement_is si ON si.filing_id=f.id
+        JOIN statement_cf cf ON cf.filing_id=f.id AND cf.fy = si.fy
+        WHERE f.cik=:cik AND si.fy IS NOT NULL
+        ORDER BY si.fy ASC
+    """,
+        cik=cik,
+    ).fetchall()
+
+    out = []
+    for fy, revenue, cfo, capex in rows:
+        margin = None
+        rev = float(revenue) if revenue is not None else None
+        cf = float(cfo) if cfo is not None else None
+        cx = float(capex) if capex is not None else None
+        if rev and rev != 0 and cf is not None and cx is not None:
+            margin = (cf - cx) / rev
+        out.append({"fy": int(fy), "fcf_margin": margin})
+    return out
+
+
+def cash_conversion_series(cik: str) -> List[Dict]:
+    """CFO / Net Income per fiscal year.
+
+    Cash conversion ratio > 1.0 indicates high-quality earnings (cash flow
+    exceeds accounting profit). Consistently < 1.0 may signal accrual issues.
+    """
+    rows = execute(
+        """
+        SELECT si.fy, si.net_income, cf.cfo
+        FROM filing f
+        JOIN statement_is si ON si.filing_id=f.id
+        JOIN statement_cf cf ON cf.filing_id=f.id AND cf.fy = si.fy
+        WHERE f.cik=:cik AND si.fy IS NOT NULL
+        ORDER BY si.fy ASC
+    """,
+        cik=cik,
+    ).fetchall()
+
+    out = []
+    for fy, net_income, cfo in rows:
+        ratio = None
+        ni = float(net_income) if net_income is not None else None
+        cf = float(cfo) if cfo is not None else None
+        if ni is not None and ni != 0 and cf is not None:
+            ratio = cf / ni
+        out.append({"fy": int(fy), "cash_conversion": ratio})
+    return out
+
+
+def roe_series(cik: str) -> List[Dict]:
+    """Net Income / Shareholder Equity per fiscal year.
+
+    Returns None for years with equity <= 0 (same guard as ROIC for negative
+    equity companies like SBUX, MCD, LMT).
+    """
+    rows = execute(
+        """
+        SELECT si.fy, si.net_income, bs.shareholder_equity
+        FROM filing f
+        JOIN statement_is si ON si.filing_id=f.id
+        JOIN statement_bs bs ON bs.filing_id=f.id AND bs.fy = si.fy
+        WHERE f.cik=:cik AND si.fy IS NOT NULL
+        ORDER BY si.fy ASC
+    """,
+        cik=cik,
+    ).fetchall()
+
+    out = []
+    for fy, net_income, equity in rows:
+        roe = None
+        ni = float(net_income) if net_income is not None else None
+        eq = float(equity) if equity is not None else None
+        if ni is not None and eq is not None and eq > 0:
+            roe = ni / eq
+        out.append({"fy": int(fy), "roe": roe})
+    return out
