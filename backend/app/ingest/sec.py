@@ -1,8 +1,10 @@
 import logging
 import os
+
 import httpx
-from app.db.session import execute
+
 from app.core.industry import sic_to_category
+from app.db.session import execute
 
 log = logging.getLogger(__name__)
 
@@ -13,11 +15,11 @@ SEC_HEADERS = {
 BASE = "https://www.sec.gov"
 
 
-def fetch_json(url: str) -> dict:
+def fetch_json(url: str) -> dict:  # type: ignore[type-arg]
     with httpx.Client(timeout=30.0, headers=SEC_HEADERS) as client:
         r = client.get(url)
         r.raise_for_status()
-        return r.json()
+        return r.json()  # type: ignore[no-any-return]
 
 
 def ticker_map():
@@ -61,7 +63,7 @@ IS_TAGS = {
         "SalesRevenueGoodsNet",
         "SalesRevenueServicesNet",
         "RevenuesNetOfInterestExpense",
-        "InterestAndDividendIncomeOperating",   # banks
+        "InterestAndDividendIncomeOperating",  # banks
     ],
     "cogs": [
         "CostOfGoodsAndServicesSold",
@@ -306,9 +308,7 @@ def upsert_company(
     )
 
 
-def upsert_filing(
-    cik: str, form: str | None, accession: str | None, period_end: str | None
-):
+def upsert_filing(cik: str, form: str | None, accession: str | None, period_end: str | None):
     # Convert date objects to ISO format strings for SQLite compatibility
     from datetime import date
 
@@ -331,7 +331,7 @@ def upsert_filing(
     return int(row[0]) if row else None
 
 
-def _pick_first_units(facts: dict, tag_list: list[str]) -> dict | None:
+def _pick_first_units(facts: dict, tag_list: list[str]) -> dict | None:  # type: ignore[type-arg]
     """Return units dict for the first tag that has 10-K/20-F annual data.
 
     Previous behavior picked the first tag that merely existed, even if it
@@ -347,7 +347,7 @@ def _pick_first_units(facts: dict, tag_list: list[str]) -> dict | None:
         # Check if any unit key has at least one 10-K/20-F entry
         for unit_key, entries in units.items():
             if any(e.get("form") in ("10-K", "20-F") for e in entries):
-                return units
+                return dict(units)
     return None
 
 
@@ -397,8 +397,7 @@ def _annual_value(units: dict, unit_key: str, fy: int) -> float | None:
     return best
 
 
-def _insert_statement(filing_id: int, fy: int, stmt_type: str, units_cache: dict,
-                      facts: dict | None = None):
+def _insert_statement(filing_id: int, fy: int, stmt_type: str, units_cache: dict, facts: dict | None = None):
     """Generic statement insertion using schema configuration.
 
     Args:
@@ -409,12 +408,12 @@ def _insert_statement(filing_id: int, fy: int, stmt_type: str, units_cache: dict
         facts: Raw CompanyFacts JSON for fallback summing logic
     """
     schema = STATEMENT_SCHEMAS[stmt_type]
-    table = schema["table"]
-    fields = schema["fields"]
-    units_map = schema["units"]
+    table: str = schema["table"]  # type: ignore[assignment]
+    fields: list[str] = schema["fields"]  # type: ignore[assignment]
+    units_map: dict[str, str] = schema["units"]  # type: ignore[assignment]
 
     # Build field values dynamically
-    values = {"filing_id": filing_id, "fy": fy}
+    values: dict[str, object] = {"filing_id": filing_id, "fy": fy}
     for field in fields:
         unit_key = units_map[field]
         values[field] = _annual_value(units_cache[stmt_type][field], unit_key, fy)
@@ -489,7 +488,7 @@ def ingest_companyfacts_richer_by_ticker(ticker: str):
         fiscal_year_end_month=fy_end_month,
     )
 
-    units_cache = {"is": {}, "bs": {}, "cf": {}}
+    units_cache: dict[str, dict] = {"is": {}, "bs": {}, "cf": {}}
     for k, tags in IS_TAGS.items():
         units_cache["is"][k] = _pick_first_units(facts, tags)
     for k, tags in BS_TAGS.items():
@@ -497,7 +496,7 @@ def ingest_companyfacts_richer_by_ticker(ticker: str):
     for k, tags in CF_TAGS.items():
         units_cache["cf"][k] = _pick_first_units(facts, tags)
 
-    years = set()
+    years_set: set[int] = set()
     for units, key in (
         (units_cache["is"]["revenue"], "USD"),
         (units_cache["is"]["eps_diluted"], "USD/shares"),
@@ -507,8 +506,8 @@ def ingest_companyfacts_richer_by_ticker(ticker: str):
                 fy = item.get("fy")
                 form = item.get("form", "")
                 if fy and form in ("10-K", "20-F"):
-                    years.add(int(fy))
-    years = sorted(years)
+                    years_set.add(int(fy))
+    years = sorted(years_set)
 
     for fy in years:
         filing_id = upsert_filing(

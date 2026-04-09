@@ -7,15 +7,17 @@ Tests for:
 - C3: compute_balance_sheet_resilience()
 - C4: Pricing power indicator
 """
+
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from app.nlp.fourm.service import (
-    compute_moat,
+    _compute_pricing_power,
     compute_balance_sheet_resilience,
     compute_margin_of_safety_recommendation,
-    _compute_pricing_power,
+    compute_moat,
 )
-
 
 pytestmark = [pytest.mark.unit]
 
@@ -24,6 +26,7 @@ pytestmark = [pytest.mark.unit]
 # C4: Pricing Power Tests
 # =============================================================================
 
+
 class TestComputePricingPower:
     """Test the pricing power calculation helper function."""
 
@@ -31,7 +34,7 @@ class TestComputePricingPower:
         """Test pricing power with excellent metrics."""
         # High margin (60%), stable (0.9), improving trend (+3%)
         result = _compute_pricing_power(0.60, 0.9, 0.03)
-        
+
         assert result is not None
         assert result > 0.8  # Should be high score
 
@@ -39,7 +42,7 @@ class TestComputePricingPower:
         """Test pricing power with low gross margin."""
         # Low margin (15%), stable, flat trend
         result = _compute_pricing_power(0.15, 0.8, 0.0)
-        
+
         assert result is not None
         assert result < 0.5  # Should be lower score due to low margin
 
@@ -47,7 +50,7 @@ class TestComputePricingPower:
         """Test pricing power with declining gross margin trend."""
         # Good margin (40%), stable, but declining (-6%)
         result = _compute_pricing_power(0.40, 0.8, -0.06)
-        
+
         assert result is not None
         # Declining trend should hurt score
         assert result < 0.7
@@ -56,7 +59,7 @@ class TestComputePricingPower:
         """Test pricing power with unstable gross margins."""
         # Good margin (40%), unstable (0.3), flat trend
         result = _compute_pricing_power(0.40, 0.3, 0.0)
-        
+
         assert result is not None
         # Instability should hurt score
         assert result < 0.7
@@ -69,7 +72,7 @@ class TestComputePricingPower:
     def test_pricing_power_partial_data(self):
         """Test pricing power with only margin available."""
         result = _compute_pricing_power(0.45, None, None)
-        
+
         assert result is not None
         # Should still calculate based on available data
         assert 0.0 <= result <= 1.0
@@ -79,7 +82,7 @@ class TestComputePricingPower:
         # At 20% margin boundary
         result_low = _compute_pricing_power(0.20, 0.5, 0.0)
         assert result_low is not None
-        
+
         # At 50% margin boundary
         result_high = _compute_pricing_power(0.50, 0.5, 0.0)
         assert result_high is not None
@@ -90,6 +93,7 @@ class TestComputePricingPower:
 # C1 & C2: Enhanced compute_moat() Tests
 # =============================================================================
 
+
 class TestComputeMoatPhaseC:
     """Test Phase C enhancements to compute_moat()."""
 
@@ -97,9 +101,7 @@ class TestComputeMoatPhaseC:
     @patch("app.nlp.fourm.service.gross_margin_series")
     @patch("app.nlp.fourm.service.margin_stability")
     @patch("app.nlp.fourm.service.roic_series")
-    def test_moat_includes_gross_margin_trend(
-        self, mock_roic, mock_margin, mock_gm, mock_persist
-    ):
+    def test_moat_includes_gross_margin_trend(self, mock_roic, mock_margin, mock_gm, mock_persist):
         """Test that moat includes gross margin trajectory (C1)."""
         # Arrange
         mock_roic.return_value = [
@@ -131,9 +133,7 @@ class TestComputeMoatPhaseC:
     @patch("app.nlp.fourm.service.gross_margin_series")
     @patch("app.nlp.fourm.service.margin_stability")
     @patch("app.nlp.fourm.service.roic_series")
-    def test_moat_includes_roic_persistence_score(
-        self, mock_roic, mock_margin, mock_gm, mock_persist
-    ):
+    def test_moat_includes_roic_persistence_score(self, mock_roic, mock_margin, mock_gm, mock_persist):
         """Test that moat includes ROIC persistence score (C2)."""
         # Arrange
         mock_roic.return_value = [{"fy": 2021, "roic": 0.20}]
@@ -152,9 +152,7 @@ class TestComputeMoatPhaseC:
     @patch("app.nlp.fourm.service.gross_margin_series")
     @patch("app.nlp.fourm.service.margin_stability")
     @patch("app.nlp.fourm.service.roic_series")
-    def test_moat_includes_pricing_power(
-        self, mock_roic, mock_margin, mock_gm, mock_persist
-    ):
+    def test_moat_includes_pricing_power(self, mock_roic, mock_margin, mock_gm, mock_persist):
         """Test that moat includes pricing power score (C4)."""
         # Arrange
         mock_roic.return_value = [{"fy": 2021, "roic": 0.20}]
@@ -178,9 +176,7 @@ class TestComputeMoatPhaseC:
     @patch("app.nlp.fourm.service.gross_margin_series")
     @patch("app.nlp.fourm.service.margin_stability")
     @patch("app.nlp.fourm.service.roic_series")
-    def test_moat_handles_missing_gross_margin_data(
-        self, mock_roic, mock_margin, mock_gm, mock_persist
-    ):
+    def test_moat_handles_missing_gross_margin_data(self, mock_roic, mock_margin, mock_gm, mock_persist):
         """Test moat calculation when gross margin data is missing."""
         # Arrange
         mock_roic.return_value = [{"fy": 2021, "roic": 0.20}]
@@ -203,15 +199,14 @@ class TestComputeMoatPhaseC:
 # C3: Balance Sheet Resilience Tests
 # =============================================================================
 
+
 class TestComputeBalanceSheetResilience:
     """Test the balance sheet resilience calculation (C3)."""
 
     @patch("app.nlp.fourm.service.latest_debt_to_equity")
     @patch("app.nlp.fourm.service.net_debt_series")
     @patch("app.nlp.fourm.service.coverage_series")
-    def test_balance_sheet_excellent(
-        self, mock_coverage, mock_net_debt, mock_de
-    ):
+    def test_balance_sheet_excellent(self, mock_coverage, mock_net_debt, mock_de):
         """Test balance sheet with excellent metrics."""
         # Arrange
         mock_coverage.return_value = [
@@ -238,9 +233,7 @@ class TestComputeBalanceSheetResilience:
     @patch("app.nlp.fourm.service.latest_debt_to_equity")
     @patch("app.nlp.fourm.service.net_debt_series")
     @patch("app.nlp.fourm.service.coverage_series")
-    def test_balance_sheet_poor(
-        self, mock_coverage, mock_net_debt, mock_de
-    ):
+    def test_balance_sheet_poor(self, mock_coverage, mock_net_debt, mock_de):
         """Test balance sheet with poor metrics."""
         # Arrange
         mock_coverage.return_value = [
@@ -267,9 +260,7 @@ class TestComputeBalanceSheetResilience:
     @patch("app.nlp.fourm.service.latest_debt_to_equity")
     @patch("app.nlp.fourm.service.net_debt_series")
     @patch("app.nlp.fourm.service.coverage_series")
-    def test_balance_sheet_moderate(
-        self, mock_coverage, mock_net_debt, mock_de
-    ):
+    def test_balance_sheet_moderate(self, mock_coverage, mock_net_debt, mock_de):
         """Test balance sheet with moderate metrics."""
         # Arrange
         mock_coverage.return_value = [
@@ -294,9 +285,7 @@ class TestComputeBalanceSheetResilience:
     @patch("app.nlp.fourm.service.latest_debt_to_equity")
     @patch("app.nlp.fourm.service.net_debt_series")
     @patch("app.nlp.fourm.service.coverage_series")
-    def test_balance_sheet_missing_data(
-        self, mock_coverage, mock_net_debt, mock_de
-    ):
+    def test_balance_sheet_missing_data(self, mock_coverage, mock_net_debt, mock_de):
         """Test balance sheet with missing data."""
         # Arrange
         mock_coverage.return_value = []
@@ -315,9 +304,7 @@ class TestComputeBalanceSheetResilience:
     @patch("app.nlp.fourm.service.latest_debt_to_equity")
     @patch("app.nlp.fourm.service.net_debt_series")
     @patch("app.nlp.fourm.service.coverage_series")
-    def test_balance_sheet_partial_data(
-        self, mock_coverage, mock_net_debt, mock_de
-    ):
+    def test_balance_sheet_partial_data(self, mock_coverage, mock_net_debt, mock_de):
         """Test balance sheet with partial data available."""
         # Arrange
         mock_coverage.return_value = [{"fy": 2023, "coverage": 8.0}]
@@ -337,6 +324,7 @@ class TestComputeBalanceSheetResilience:
 # Enhanced MOS Recommendation Tests
 # =============================================================================
 
+
 class TestMOSRecommendationPhaseC:
     """Test Phase C enhancements to MOS recommendation."""
 
@@ -344,9 +332,7 @@ class TestMOSRecommendationPhaseC:
     @patch("app.nlp.fourm.service.compute_growth_metrics")
     @patch("app.nlp.fourm.service.compute_management")
     @patch("app.nlp.fourm.service.compute_moat")
-    def test_mos_includes_balance_sheet_score(
-        self, mock_moat, mock_mgmt, mock_growth, mock_bs
-    ):
+    def test_mos_includes_balance_sheet_score(self, mock_moat, mock_mgmt, mock_growth, mock_bs):
         """Test that MOS recommendation includes balance sheet score."""
         # Arrange
         mock_moat.return_value = {"score": 0.7}
@@ -365,19 +351,17 @@ class TestMOSRecommendationPhaseC:
     @patch("app.nlp.fourm.service.compute_growth_metrics")
     @patch("app.nlp.fourm.service.compute_management")
     @patch("app.nlp.fourm.service.compute_moat")
-    def test_mos_adjusts_for_weak_balance_sheet(
-        self, mock_moat, mock_mgmt, mock_growth, mock_bs
-    ):
+    def test_mos_adjusts_for_weak_balance_sheet(self, mock_moat, mock_mgmt, mock_growth, mock_bs):
         """Test that weak balance sheet increases recommended MOS."""
         # Arrange - same moat/mgmt/growth, different balance sheet
         mock_moat.return_value = {"score": 0.7}
         mock_mgmt.return_value = {"score": 0.6}
         mock_growth.return_value = {"eps_cagr_5y": 0.12}
-        
+
         # Strong balance sheet
         mock_bs.return_value = {"score": 5.0}
         result_strong = compute_margin_of_safety_recommendation("test_cik")
-        
+
         # Weak balance sheet
         mock_bs.return_value = {"score": 1.0}
         result_weak = compute_margin_of_safety_recommendation("test_cik")
@@ -389,9 +373,7 @@ class TestMOSRecommendationPhaseC:
     @patch("app.nlp.fourm.service.compute_growth_metrics")
     @patch("app.nlp.fourm.service.compute_management")
     @patch("app.nlp.fourm.service.compute_moat")
-    def test_mos_handles_missing_balance_sheet(
-        self, mock_moat, mock_mgmt, mock_growth, mock_bs
-    ):
+    def test_mos_handles_missing_balance_sheet(self, mock_moat, mock_mgmt, mock_growth, mock_bs):
         """Test MOS calculation when balance sheet data is missing."""
         # Arrange
         mock_moat.return_value = {"score": 0.7}

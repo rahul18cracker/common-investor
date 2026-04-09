@@ -3,10 +3,12 @@ Comprehensive unit tests for valuation/service module.
 
 Tests the orchestration layer that combines metrics, growth data, and valuation formulas.
 """
-import pytest
-from unittest.mock import patch, MagicMock
-from app.valuation.service import resolve_cik_by_ticker, run_default_scenario
 
+from unittest.mock import patch
+
+import pytest
+
+from app.valuation.service import resolve_cik_by_ticker, run_default_scenario
 
 pytestmark = pytest.mark.unit
 
@@ -19,10 +21,10 @@ class TestResolveCikByTicker:
         """Test successful CIK resolution."""
         # Arrange
         mock_execute.return_value.first.return_value = ("0000789019",)
-        
+
         # Act
         result = resolve_cik_by_ticker("MSFT")
-        
+
         # Assert
         assert result == "0000789019"
         mock_execute.assert_called_once()
@@ -32,10 +34,10 @@ class TestResolveCikByTicker:
         """Test that ticker lookup is case-insensitive."""
         # Arrange
         mock_execute.return_value.first.return_value = ("0000789019",)
-        
+
         # Act
         resolve_cik_by_ticker("msft")
-        
+
         # Assert
         call_args = mock_execute.call_args[0][0]
         assert "upper(ticker)=upper(:t)" in call_args
@@ -45,10 +47,10 @@ class TestResolveCikByTicker:
         """Test CIK resolution when ticker not found."""
         # Arrange
         mock_execute.return_value.first.return_value = None
-        
+
         # Act
         result = resolve_cik_by_ticker("INVALID")
-        
+
         # Assert
         assert result is None
 
@@ -69,10 +71,10 @@ class TestRunDefaultScenario:
         mock_growth.return_value = {"eps_cagr_5y": 0.15, "rev_cagr_5y": 0.12}
         mock_oe.return_value = 12.00
         mock_execute.return_value.first.return_value = (350.00,)  # Current price
-        
+
         # Act
         result = run_default_scenario("MSFT")
-        
+
         # Assert
         assert result["inputs"]["eps0"] == 10.00
         assert result["inputs"]["g"] == 0.15
@@ -86,7 +88,7 @@ class TestRunDefaultScenario:
         """Test error when ticker is unknown."""
         # Arrange
         mock_cik.return_value = None
-        
+
         # Act & Assert
         with pytest.raises(ValueError, match="Unknown ticker"):
             run_default_scenario("INVALID")
@@ -98,7 +100,7 @@ class TestRunDefaultScenario:
         # Arrange
         mock_cik.return_value = "0000789019"
         mock_eps.return_value = None
-        
+
         # Act & Assert
         with pytest.raises(ValueError, match="Missing EPS"):
             run_default_scenario("MSFT")
@@ -116,10 +118,10 @@ class TestRunDefaultScenario:
         mock_growth.return_value = {"rev_cagr_5y": 0.18}  # No EPS growth
         mock_oe.return_value = 9.00
         mock_execute.return_value.first.return_value = None
-        
+
         # Act
         result = run_default_scenario("MSFT")
-        
+
         # Assert
         assert result["inputs"]["g"] == 0.18  # Used revenue growth
 
@@ -136,10 +138,10 @@ class TestRunDefaultScenario:
         mock_growth.return_value = {"eps_cagr_10y": 0.14, "rev_cagr_10y": 0.13}
         mock_oe.return_value = 9.00
         mock_execute.return_value.first.return_value = None
-        
+
         # Act
         result = run_default_scenario("MSFT")
-        
+
         # Assert
         assert result["inputs"]["g"] == 0.14  # Used 10y EPS growth
 
@@ -156,10 +158,10 @@ class TestRunDefaultScenario:
         mock_growth.return_value = {}  # No growth data
         mock_oe.return_value = 9.00
         mock_execute.return_value.first.return_value = None
-        
+
         # Act
         result = run_default_scenario("MSFT")
-        
+
         # Assert
         assert result["inputs"]["g"] == 0.10  # Default
 
@@ -176,15 +178,13 @@ class TestRunDefaultScenario:
         mock_growth.return_value = {"eps_cagr_5y": 0.15}
         mock_oe.return_value = 12.00
         mock_execute.return_value.first.return_value = None
-        
+
         # Act
         result = run_default_scenario("MSFT", mos_pct=0.7)
-        
+
         # Assert
         assert result["inputs"]["mos_pct"] == 0.7
-        assert result["results"]["mos_price"] == pytest.approx(
-            result["results"]["sticker"] * 0.3, rel=1e-6
-        )
+        assert result["results"]["mos_price"] == pytest.approx(result["results"]["sticker"] * 0.3, rel=1e-6)
 
     @patch("app.valuation.service.execute")
     @patch("app.valuation.service.latest_owner_earnings_ps")
@@ -199,10 +199,10 @@ class TestRunDefaultScenario:
         mock_growth.return_value = {"eps_cagr_5y": 0.15}
         mock_oe.return_value = 12.00
         mock_execute.return_value.first.return_value = None
-        
+
         # Act
         result = run_default_scenario("MSFT", g_override=0.20)
-        
+
         # Assert
         assert result["inputs"]["g"] == 0.20  # Override used
 
@@ -219,10 +219,10 @@ class TestRunDefaultScenario:
         mock_growth.return_value = {"eps_cagr_5y": 0.15}
         mock_oe.return_value = 12.00
         mock_execute.return_value.first.return_value = None
-        
+
         # Act
         result = run_default_scenario("MSFT", pe_cap=25)
-        
+
         # Assert
         assert result["inputs"]["pe_cap"] == 25
 
@@ -239,10 +239,10 @@ class TestRunDefaultScenario:
         mock_growth.return_value = {"eps_cagr_5y": 0.15}
         mock_oe.return_value = 12.00
         mock_execute.return_value.first.return_value = None
-        
+
         # Act
         result = run_default_scenario("MSFT", discount=0.20)
-        
+
         # Assert
         assert result["inputs"]["discount"] == 0.20
 
@@ -259,10 +259,10 @@ class TestRunDefaultScenario:
         mock_growth.return_value = {"eps_cagr_5y": 0.15}
         mock_oe.return_value = 12.00
         mock_execute.return_value.first.return_value = None  # No price
-        
+
         # Act
         result = run_default_scenario("MSFT")
-        
+
         # Assert
         assert result["results"]["current_price"] is None
         # Payback should use MOS price as fallback
@@ -281,10 +281,10 @@ class TestRunDefaultScenario:
         mock_growth.return_value = {"eps_cagr_5y": 0.15}
         mock_oe.return_value = None  # No OE data
         mock_execute.return_value.first.return_value = None
-        
+
         # Act
         result = run_default_scenario("MSFT")
-        
+
         # Assert
         assert result["results"]["owner_earnings_ps"] == 10.00  # Fell back to EPS
         assert result["results"]["ten_cap_price"] == pytest.approx(100.00, rel=1e-6)
@@ -302,10 +302,10 @@ class TestRunDefaultScenario:
         mock_growth.return_value = {"eps_cagr_5y": 0.15}
         mock_oe.return_value = 0  # Falls back to EPS
         mock_execute.return_value.first.return_value = None
-        
+
         # Act
         result = run_default_scenario("MSFT")
-        
+
         # Assert: OE falls back to EPS, so payback is calculated
         assert result["results"]["owner_earnings_ps"] == 10.00
         assert result["results"]["payback_years"] is not None

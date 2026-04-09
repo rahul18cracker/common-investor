@@ -4,31 +4,30 @@ Comprehensive unit tests for metrics computation module.
 This test suite aims for 90%+ coverage of app/metrics/compute.py
 Following industry best practices: AAA pattern, parameterization, clear assertions.
 """
-import pytest
+
 from unittest.mock import Mock, patch
+
+import pytest
+
 from app.metrics.compute import (
     cagr,
     compute_growth_metrics,
-    owner_earnings_series,
-    latest_owner_earnings_ps,
-    roic_series,
-    coverage_series,
-    margin_stability,
-    latest_eps,
-    revenue_eps_series,
-    roic_average,
+    compute_growth_metrics_extended,
+    gross_margin_series,
     latest_debt_to_equity,
     latest_owner_earnings_growth,
-    timeseries_all,
-    gross_margin_series,
-    revenue_volatility,
-    compute_growth_metrics_extended,
+    latest_owner_earnings_ps,
+    margin_stability,
     net_debt_series,
-    share_count_trend,
-    roic_persistence_score,
+    owner_earnings_series,
     quality_scores,
+    revenue_volatility,
+    roic_average,
+    roic_persistence_score,
+    roic_series,
+    share_count_trend,
+    timeseries_all,
 )
-
 
 # Mark all tests in this file as unit tests
 pytestmark = pytest.mark.unit
@@ -480,9 +479,7 @@ class TestROICAverage:
     def test_roic_average_10_years(self, mock_series):
         """Test 10-year average ROIC calculation."""
         # Arrange: Consistent 25% ROIC
-        mock_series.return_value = [
-            {"fy": y, "roic": 0.25} for y in range(2014, 2024)
-        ]
+        mock_series.return_value = [{"fy": y, "roic": 0.25} for y in range(2014, 2024)]
 
         # Act
         result = roic_average("0000789019", years=10)
@@ -494,9 +491,7 @@ class TestROICAverage:
     def test_roic_average_less_than_requested_years(self, mock_series):
         """Test when fewer years are available than requested."""
         # Arrange: Only 5 years of data
-        mock_series.return_value = [
-            {"fy": y, "roic": 0.20} for y in range(2019, 2024)
-        ]
+        mock_series.return_value = [{"fy": y, "roic": 0.20} for y in range(2019, 2024)]
 
         # Act
         result = roic_average("0000789019", years=10)
@@ -526,9 +521,7 @@ class TestROICAverage:
     def test_roic_average_no_valid_data(self, mock_series):
         """Test when no valid ROIC data exists."""
         # Arrange
-        mock_series.return_value = [
-            {"fy": 2023, "roic": None}
-        ]
+        mock_series.return_value = [{"fy": 2023, "roic": None}]
 
         # Act
         result = roic_average("0000789019", years=10)
@@ -608,9 +601,7 @@ class TestLatestOwnerEarningsGrowth:
     def test_owner_earnings_growth_insufficient_data(self, mock_series):
         """Test with only 1 data point."""
         # Arrange
-        mock_series.return_value = [
-            {"fy": 2023, "owner_earnings": 50_000_000_000}
-        ]
+        mock_series.return_value = [{"fy": 2023, "owner_earnings": 50_000_000_000}]
 
         # Act
         result = latest_owner_earnings_growth("0000789019")
@@ -681,9 +672,7 @@ class TestTimeseriesAll:
     @patch("app.metrics.compute.owner_earnings_series")
     @patch("app.metrics.compute.roic_series")
     @patch("app.metrics.compute.coverage_series")
-    def test_timeseries_all_aggregation(
-        self, mock_cov, mock_roic, mock_oe, mock_is
-    ):
+    def test_timeseries_all_aggregation(self, mock_cov, mock_roic, mock_oe, mock_is):
         """Test that all timeseries data is properly aggregated."""
         # Arrange
         mock_is.return_value = [{"fy": 2023, "revenue": 1000, "eps": 5.0}]
@@ -706,6 +695,7 @@ class TestTimeseriesAll:
 # =============================================================================
 # Phase B: New Metrics Functions Tests
 # =============================================================================
+
 
 class TestGrossMarginSeries:
     """Test B1: gross_margin_series function."""

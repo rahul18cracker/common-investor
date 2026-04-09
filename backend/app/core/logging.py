@@ -1,4 +1,5 @@
 """Logging configuration for the application"""
+
 from fastapi import FastAPI
 
 

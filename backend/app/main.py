@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.logging import init_logging
-from app.core.errors import api_error_handler, ApiError
+
 from app.api.v1.routes import router as v1_router
+from app.core.errors import ApiError, api_error_handler
+from app.core.logging import init_logging
 
 app = FastAPI(title="Common Investor API", version="0.1.0")
 
@@ -17,7 +18,7 @@ app.add_middleware(
 
 init_logging(app)
 app.include_router(v1_router, prefix="/api/v1")
-app.add_exception_handler(ApiError, api_error_handler)
+app.add_exception_handler(ApiError, api_error_handler)  # type: ignore[arg-type]
 
 
 @app.get("/api/v1/health")

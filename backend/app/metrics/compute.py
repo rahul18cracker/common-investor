@@ -1,22 +1,24 @@
 from __future__ import annotations
-from typing import List, Tuple, Optional, Dict
+
 from statistics import pstdev
-from app.db.session import execute
+from typing import Dict, List, Optional, Tuple
+
 from app.core.utils import convert_row_to_dict
+from app.db.session import execute
 
 
 def cagr(first: float, last: float, years: int) -> Optional[float]:
     """
     Calculate Compound Annual Growth Rate (CAGR).
-    
+
     Args:
         first: Starting value (must be positive)
         last: Ending value (must be positive)
         years: Number of years between first and last
-    
+
     Returns:
         CAGR as decimal (e.g., 0.15 for 15% growth) or None if invalid inputs
-    
+
     Example:
         >>> cagr(100, 200, 5)  # 100 grew to 200 over 5 years
         0.1487...  # ~14.87% annual growth
@@ -24,52 +26,50 @@ def cagr(first: float, last: float, years: int) -> Optional[float]:
     if first is None or last is None or years <= 0 or first <= 0 or last <= 0:
         return None
     try:
-        return (last / first) ** (1.0 / years) - 1.0
+        return float((last / first) ** (1.0 / years) - 1.0)
     except Exception:
         return None
 
 
 def _calculate_window_cagr(years: List[int], values: List[Optional[float]], window_years: int) -> Optional[float]:
     """Calculate CAGR over a sliding window of years.
-    
+
     Finds the first and last non-None values within the window and computes CAGR.
-    
+
     Args:
         years: List of fiscal years (ascending order)
         values: List of values corresponding to each year
         window_years: Number of years for the window (e.g., 5 for 5-year CAGR)
-    
+
     Returns:
         CAGR as a decimal (e.g., 0.15 for 15%) or None if insufficient data
     """
     if not years or not values or len(years) != len(values):
         return None
-    
+
     last_year = years[-1]
     first_year = max(years[0], last_year - (window_years - 1))
-    
+
     # Find first non-None value in window
     first_idx = next(
-        (i for i, (fy, v) in enumerate(zip(years, values))
-         if fy >= first_year and v is not None),
+        (i for i, (fy, v) in enumerate(zip(years, values)) if fy >= first_year and v is not None),
         None,
     )
-    
+
     # Find last non-None value in window
     last_idx = next(
-        (i for i, (fy, v) in reversed(list(enumerate(zip(years, values))))
-         if fy <= last_year and v is not None),
+        (i for i, (fy, v) in reversed(list(enumerate(zip(years, values)))) if fy <= last_year and v is not None),
         None,
     )
-    
+
     if first_idx is None or last_idx is None or last_idx <= first_idx:
         return None
-    
+
     span_years = years[last_idx] - years[first_idx]
     if span_years <= 0:
         return None
-    
-    return cagr(values[first_idx], values[last_idx], span_years)
+
+    return cagr(values[first_idx], values[last_idx], span_years)  # type: ignore[arg-type]
 
 
 def _fetch_is_series(
@@ -77,7 +77,7 @@ def _fetch_is_series(
 ) -> List[Tuple[int, Optional[float], Optional[float], Optional[float]]]:
     """
     Fetch income statement time series data for a company.
-    
+
     Returns list of tuples: (fiscal_year, revenue, eps_diluted, ebit)
     """
     rows = execute(
@@ -103,7 +103,7 @@ def _fetch_is_series(
 def _fetch_cf_bs_for_roic(cik: str) -> List[Dict]:
     """
     Fetch combined cash flow, balance sheet, and income statement data for ROIC calculation.
-    
+
     Returns list of dicts with keys: fy, cfo, capex, shares, ebit, taxes, debt, equity, cash, revenue
     """
     rows = execute(
@@ -120,21 +120,21 @@ def _fetch_cf_bs_for_roic(cik: str) -> List[Dict]:
     """,
         cik=cik,
     ).fetchall()
-    
-    fields = ['fy', 'cfo', 'capex', 'shares', 'ebit', 'taxes', 'debt', 'equity', 'cash', 'revenue']
+
+    fields = ["fy", "cfo", "capex", "shares", "ebit", "taxes", "debt", "equity", "cash", "revenue"]
     type_map = {
-        'fy': int,
-        'cfo': float,
-        'capex': float,
-        'shares': float,
-        'ebit': float,
-        'taxes': float,
-        'debt': float,
-        'equity': float,
-        'cash': float,
-        'revenue': float,
+        "fy": int,
+        "cfo": float,
+        "capex": float,
+        "shares": float,
+        "ebit": float,
+        "taxes": float,
+        "debt": float,
+        "equity": float,
+        "cash": float,
+        "revenue": float,
     }
-    
+
     return [convert_row_to_dict(row, fields, type_map) for row in rows]
 
 
@@ -162,9 +162,9 @@ def compute_growth_metrics(cik: str) -> Dict[str, Optional[float]]:
 def owner_earnings_series(cik: str) -> List[Dict]:
     """
     Calculate owner earnings (free cash flow) series for a company.
-    
+
     Owner Earnings = CFO - CapEx (Warren Buffett's preferred metric)
-    
+
     Returns list of dicts: {fy, owner_earnings, owner_earnings_ps}
     """
     rows = _fetch_cf_bs_for_roic(cik)
@@ -183,26 +183,24 @@ def owner_earnings_series(cik: str) -> List[Dict]:
 def latest_owner_earnings_ps(cik: str) -> Optional[float]:
     """
     Get the most recent owner earnings per share for a company.
-    
+
     Returns the latest non-None owner_earnings_ps value, or None if unavailable.
     """
     ser = owner_earnings_series(cik)
     if not ser:
         return None
-    last = next(
-        (x for x in reversed(ser) if x.get("owner_earnings_ps") is not None), None
-    )
+    last = next((x for x in reversed(ser) if x.get("owner_earnings_ps") is not None), None)
     return float(last["owner_earnings_ps"]) if last else None
 
 
 def roic_series(cik: str) -> List[Dict]:
     """
     Calculate Return on Invested Capital (ROIC) series for a company.
-    
+
     ROIC = NOPAT / Invested Capital
     where NOPAT = EBIT * (1 - tax_rate)
     and Invested Capital = Equity + Debt - Cash
-    
+
     Returns list of dicts: {fy, roic}
     """
     rows = _fetch_cf_bs_for_roic(cik)
@@ -219,12 +217,7 @@ def roic_series(cik: str) -> List[Dict]:
         if fy is None:
             continue
         roic = None
-        if (
-            ebit is not None
-            and equity is not None
-            and debt is not None
-            and cash is not None
-        ):
+        if ebit is not None and equity is not None and debt is not None and cash is not None:
             tax_rate = None
             if taxes is not None and ebit != 0:
                 tax_rate = max(0.0, min(0.35, taxes / abs(ebit)))
@@ -241,10 +234,10 @@ def roic_series(cik: str) -> List[Dict]:
 def coverage_series(cik: str) -> List[Dict]:
     """
     Calculate interest coverage ratio series for a company.
-    
+
     Interest Coverage = EBIT / Interest Expense
     Higher values indicate better ability to service debt.
-    
+
     Returns list of dicts: {fy, coverage}
     """
     rows = execute(
@@ -268,16 +261,14 @@ def coverage_series(cik: str) -> List[Dict]:
 def margin_stability(cik: str) -> Optional[float]:
     """
     Calculate operating margin stability score (0-1) for a company.
-    
+
     Measures how consistent profit margins are over time.
     Higher stability (closer to 1) indicates more predictable business.
-    
+
     Returns stability score or None if insufficient data (<3 years).
     """
     series = _fetch_is_series(cik)
-    margins = [
-        (e / rev) for _, rev, _, e in series if rev and e is not None and rev != 0
-    ]
+    margins = [(e / rev) for _, rev, _, e in series if rev and e is not None and rev != 0]
     if len(margins) < 3:
         return None
     sd = pstdev(margins)
@@ -302,7 +293,7 @@ def latest_eps(cik: str) -> Optional[float]:
 def revenue_eps_series(cik: str) -> List[Dict]:
     """
     Fetch revenue and EPS time series for charting.
-    
+
     Returns list of dicts: {fy, revenue, eps}
     """
     rows = execute(
@@ -314,9 +305,9 @@ def revenue_eps_series(cik: str) -> List[Dict]:
     """,
         cik=cik,
     ).fetchall()
-    
-    fields = ['fy', 'revenue', 'eps']
-    type_map = {'fy': int, 'revenue': float, 'eps': float}
+
+    fields = ["fy", "revenue", "eps"]
+    type_map = {"fy": int, "revenue": float, "eps": float}
     return [convert_row_to_dict(row, fields, type_map) for row in rows]
 
 
@@ -326,7 +317,7 @@ def roic_average(cik: str, years: int = 10) -> Optional[float]:
     recent = [x["roic"] for x in series if x["roic"] is not None][-years:]
     if not recent:
         return None
-    return sum(recent) / len(recent)
+    return float(sum(recent) / len(recent))
 
 
 def latest_debt_to_equity(cik: str) -> Optional[float]:
@@ -352,11 +343,7 @@ def latest_debt_to_equity(cik: str) -> Optional[float]:
 def latest_owner_earnings_growth(cik: str) -> Optional[float]:
     """Calculate 5-year owner earnings CAGR"""
     series = owner_earnings_series(cik)
-    oe_vals = [
-        (x["fy"], x["owner_earnings"])
-        for x in series
-        if x["owner_earnings"] is not None
-    ]
+    oe_vals = [(x["fy"], x["owner_earnings"]) for x in series if x["owner_earnings"] is not None]
     if len(oe_vals) < 2:
         return None
 
@@ -365,9 +352,7 @@ def latest_owner_earnings_growth(cik: str) -> Optional[float]:
     last_year = years[-1]
     first_year = max(years[0], last_year - 4)
 
-    first_idx = next(
-        (i for i, (fy, val) in enumerate(oe_vals) if fy >= first_year), None
-    )
+    first_idx = next((i for i, (fy, val) in enumerate(oe_vals) if fy >= first_year), None)
     last_idx = len(oe_vals) - 1
 
     if first_idx is None or last_idx <= first_idx:
@@ -383,7 +368,7 @@ def latest_owner_earnings_growth(cik: str) -> Optional[float]:
 def timeseries_all(cik: str) -> Dict[str, List[Dict]]:
     """
     Return all time series data for charts.
-    
+
     Aggregates multiple series for frontend visualization:
     - is: Revenue and EPS series
     - owner_earnings: Free cash flow series
@@ -412,10 +397,11 @@ def timeseries_all(cik: str) -> Dict[str, List[Dict]]:
 # Phase B: New Metrics Functions
 # =============================================================================
 
+
 def gross_margin_series(cik: str) -> List[Dict]:
     """
     B1: Calculate gross margin series for trend analysis.
-    
+
     Returns list of {fy, gross_margin} where gross_margin = gross_profit / revenue.
     If gross_profit is not available, attempts to calculate from revenue - cogs.
     """
@@ -428,20 +414,20 @@ def gross_margin_series(cik: str) -> List[Dict]:
     """,
         cik=cik,
     ).fetchall()
-    
+
     out = []
     for fy, revenue, gross_profit, cogs in rows:
         gm = None
         rev = float(revenue) if revenue is not None else None
         gp = float(gross_profit) if gross_profit is not None else None
         cost = float(cogs) if cogs is not None else None
-        
+
         if rev and rev != 0:
             if gp is not None:
                 gm = gp / rev
             elif cost is not None:
                 gm = (rev - cost) / rev
-        
+
         out.append({"fy": int(fy), "gross_margin": gm})
     return out
 
@@ -449,14 +435,14 @@ def gross_margin_series(cik: str) -> List[Dict]:
 def revenue_volatility(cik: str) -> Optional[float]:
     """
     B2: Calculate revenue volatility as std dev of YoY revenue growth rates.
-    
+
     This measures cyclicality - higher volatility indicates more cyclical business.
     Returns None if insufficient data (need at least 3 years for meaningful volatility).
     """
     series = _fetch_is_series(cik)
     if len(series) < 3:
         return None
-    
+
     # Calculate YoY growth rates
     growth_rates = []
     for i in range(1, len(series)):
@@ -465,17 +451,17 @@ def revenue_volatility(cik: str) -> Optional[float]:
         if prev_rev and curr_rev and prev_rev != 0:
             growth = (curr_rev - prev_rev) / prev_rev
             growth_rates.append(growth)
-    
+
     if len(growth_rates) < 2:
         return None
-    
+
     return pstdev(growth_rates)
 
 
 def compute_growth_metrics_extended(cik: str) -> Dict[str, Optional[float]]:
     """
     B3: Extended growth metrics with 1y/3y/5y/10y CAGR windows.
-    
+
     Extends the original compute_growth_metrics() with shorter windows
     for more granular trend analysis.
     """
@@ -491,7 +477,7 @@ def compute_growth_metrics_extended(cik: str) -> Dict[str, Optional[float]]:
             "eps_cagr_5y": None,
             "eps_cagr_10y": None,
         }
-    
+
     years = [fy for fy, *_ in series]
     revs = [rev for _, rev, _, _ in series]
     eps = [e for _, _, e, _ in series]
@@ -511,7 +497,7 @@ def compute_growth_metrics_extended(cik: str) -> Dict[str, Optional[float]]:
 def net_debt_series(cik: str) -> List[Dict]:
     """
     B4: Calculate net debt series (total_debt - cash).
-    
+
     Negative net debt means company has more cash than debt (strong position).
     """
     rows = execute(
@@ -523,16 +509,16 @@ def net_debt_series(cik: str) -> List[Dict]:
     """,
         cik=cik,
     ).fetchall()
-    
+
     out = []
     for fy, total_debt, cash in rows:
         nd = None
         debt = float(total_debt) if total_debt is not None else None
         cash_val = float(cash) if cash is not None else None
-        
+
         if debt is not None and cash_val is not None:
             nd = debt - cash_val
-        
+
         out.append({"fy": int(fy), "net_debt": nd})
     return out
 
@@ -540,7 +526,7 @@ def net_debt_series(cik: str) -> List[Dict]:
 def share_count_trend(cik: str) -> List[Dict]:
     """
     B5: Track diluted share count and YoY changes.
-    
+
     Decreasing shares = buybacks (shareholder friendly)
     Increasing shares = dilution (shareholder unfriendly)
     """
@@ -553,67 +539,69 @@ def share_count_trend(cik: str) -> List[Dict]:
     """,
         cik=cik,
     ).fetchall()
-    
+
     out = []
     prev_shares = None
     for fy, shares in rows:
         shares_val = float(shares) if shares is not None else None
         yoy_change = None
-        
+
         if shares_val is not None and prev_shares is not None and prev_shares != 0:
             yoy_change = (shares_val - prev_shares) / prev_shares
-        
-        out.append({
-            "fy": int(fy),
-            "shares": shares_val,
-            "yoy_change": yoy_change,
-        })
+
+        out.append(
+            {
+                "fy": int(fy),
+                "shares": shares_val,
+                "yoy_change": yoy_change,
+            }
+        )
         prev_shares = shares_val
-    
+
     return out
 
 
 def roic_persistence_score(cik: str, years: int = 5, threshold: float = 0.15) -> Optional[int]:
     """
     B6: Calculate ROIC persistence score (0-5) based on Option C criteria.
-    
+
     Option C: Must be >= threshold (15%) AND stable (low variance).
-    
+
     Scoring:
     - Start with count of years where ROIC >= threshold (0-5)
     - Penalize by 1 point if ROIC variance is high (CV > 0.3)
     - Bonus 1 point if all years meet threshold AND variance is very low (CV < 0.15)
-    
+
     Returns 0-5 score, or None if insufficient data.
     """
     series = roic_series(cik)
     recent_roics = [x["roic"] for x in series if x["roic"] is not None][-years:]
-    
+
     if len(recent_roics) < 2:
         return None
-    
+
     # Count years meeting threshold
     above_threshold = sum(1 for r in recent_roics if r >= threshold)
-    
+
     # Calculate coefficient of variation (CV) for stability
     avg_roic = sum(recent_roics) / len(recent_roics)
     if avg_roic == 0:
         return above_threshold  # Can't calculate CV, return base score
-    
+
     std_roic = pstdev(recent_roics)
     cv = std_roic / abs(avg_roic)  # Coefficient of variation
-    
+
     # Start with base score (years above threshold, max 5)
     score = min(above_threshold, 5)
-    
+
     # Penalize high variance (CV > 0.3)
     if cv > 0.3:
         score = max(0, score - 1)
-    
+
     # Bonus for excellent consistency (all years above threshold AND very stable)
     if above_threshold >= years and cv < 0.15:
         score = min(5, score + 1)
-    
+
     return score
 
 
@@ -627,7 +615,7 @@ def quality_scores(cik: str) -> Dict:
     nd_series = net_debt_series(cik)
     shares = share_count_trend(cik)
     roic_score = roic_persistence_score(cik)
-    
+
     # Calculate gross margin trend (positive = improving)
     gm_trend = None
     gm_values = [x["gross_margin"] for x in gm_series if x["gross_margin"] is not None]
@@ -635,18 +623,18 @@ def quality_scores(cik: str) -> Dict:
         recent_avg = sum(gm_values[-3:]) / 3
         older_avg = sum(gm_values[:3]) / min(3, len(gm_values))
         gm_trend = recent_avg - older_avg
-    
+
     # Latest gross margin
     latest_gm = gm_values[-1] if gm_values else None
-    
+
     # Latest net debt
     nd_values = [x["net_debt"] for x in nd_series if x["net_debt"] is not None]
     latest_net_debt = nd_values[-1] if nd_values else None
-    
+
     # Share dilution trend (average YoY change over last 3 years)
     share_changes = [x["yoy_change"] for x in shares if x["yoy_change"] is not None]
     avg_dilution = sum(share_changes[-3:]) / len(share_changes[-3:]) if len(share_changes) >= 1 else None
-    
+
     return {
         "gross_margin_series": gm_series,
         "latest_gross_margin": latest_gm,

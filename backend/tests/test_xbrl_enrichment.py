@@ -6,16 +6,18 @@ Tests the fallback summing logic for:
 - total_debt: sum LongTermDebtNoncurrent + LongTermDebtCurrent
 - depreciation: fall back to CF adjustment tags when not on IS
 """
-import pytest
-from unittest.mock import patch
-from app.ingest.sec import (
-    _pick_first_units,
-    _annual_value,
-    _sum_annual_values,
-    SGA_COMPONENT_TAGS,
-    DEBT_COMPONENT_TAGS,
-)
 
+from unittest.mock import patch
+
+import pytest
+
+from app.ingest.sec import (
+    DEBT_COMPONENT_TAGS,
+    SGA_COMPONENT_TAGS,
+    _annual_value,
+    _pick_first_units,
+    _sum_annual_values,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -26,9 +28,14 @@ def _make_facts(*tag_defs):
     for tag, fy, val, form in tag_defs:
         if tag not in us_gaap:
             us_gaap[tag] = {"units": {"USD": []}}
-        us_gaap[tag]["units"]["USD"].append({
-            "fy": fy, "val": val, "form": form, "end": f"{fy}-12-31",
-        })
+        us_gaap[tag]["units"]["USD"].append(
+            {
+                "fy": fy,
+                "val": val,
+                "form": form,
+                "end": f"{fy}-12-31",
+            }
+        )
     return {"facts": {"us-gaap": us_gaap}}
 
 
@@ -162,10 +169,13 @@ class TestDepreciationCFFallback:
             ("DepreciationDepletionAndAmortization", 2023, 15000e6, "10-K"),
         )
 
-        units = _pick_first_units(facts, [
-            "DepreciationDepletionAndAmortization",
-            "DepreciationAndAmortization",
-        ])
+        units = _pick_first_units(
+            facts,
+            [
+                "DepreciationDepletionAndAmortization",
+                "DepreciationAndAmortization",
+            ],
+        )
 
         assert units is not None
         val = _annual_value(units, "USD", 2023)
@@ -177,10 +187,13 @@ class TestDepreciationCFFallback:
             ("DepreciationAndAmortization", 2023, 12000e6, "10-K"),
         )
 
-        units = _pick_first_units(facts, [
-            "DepreciationDepletionAndAmortization",
-            "DepreciationAndAmortization",
-        ])
+        units = _pick_first_units(
+            facts,
+            [
+                "DepreciationDepletionAndAmortization",
+                "DepreciationAndAmortization",
+            ],
+        )
 
         assert units is not None
         val = _annual_value(units, "USD", 2023)
@@ -202,6 +215,7 @@ class TestEnrichedTagLists:
         )
 
         from app.ingest.sec import IS_TAGS
+
         units = _pick_first_units(facts, IS_TAGS["revenue"])
 
         assert units is not None
@@ -215,6 +229,7 @@ class TestEnrichedTagLists:
         )
 
         from app.ingest.sec import BS_TAGS
+
         units = _pick_first_units(facts, BS_TAGS["cash"])
 
         assert units is not None
@@ -226,6 +241,7 @@ class TestEnrichedTagLists:
         )
 
         from app.ingest.sec import CF_TAGS
+
         units = _pick_first_units(facts, CF_TAGS["cfo"])
 
         assert units is not None
@@ -237,6 +253,7 @@ class TestEnrichedTagLists:
         )
 
         from app.ingest.sec import IS_TAGS
+
         units = _pick_first_units(facts, IS_TAGS["interest_expense"])
 
         assert units is not None
@@ -248,6 +265,7 @@ class TestEnrichedTagLists:
         )
 
         from app.ingest.sec import BS_TAGS
+
         units = _pick_first_units(facts, BS_TAGS["shareholder_equity"])
 
         assert units is not None
@@ -259,6 +277,7 @@ class TestEnrichedTagLists:
         )
 
         from app.ingest.sec import CF_TAGS
+
         units = _pick_first_units(facts, CF_TAGS["buybacks"])
 
         assert units is not None
@@ -281,10 +300,25 @@ class TestInsertStatementEnrichment:
             ("SellingAndMarketingExpense", 2023, 22759e6, "10-K"),
             ("GeneralAndAdministrativeExpense", 2023, 7575e6, "10-K"),
         )
-        units_cache = {"is": {k: None for k in [
-            "revenue", "cogs", "gross_profit", "sga", "rnd", "depreciation",
-            "ebit", "interest_expense", "taxes", "net_income", "eps_diluted", "shares_diluted",
-        ]}}
+        units_cache = {
+            "is": {
+                k: None
+                for k in [
+                    "revenue",
+                    "cogs",
+                    "gross_profit",
+                    "sga",
+                    "rnd",
+                    "depreciation",
+                    "ebit",
+                    "interest_expense",
+                    "taxes",
+                    "net_income",
+                    "eps_diluted",
+                    "shares_diluted",
+                ]
+            }
+        }
 
         _insert_statement(1, 2023, "is", units_cache, facts=facts)
 
@@ -300,10 +334,20 @@ class TestInsertStatementEnrichment:
             ("LongTermDebtNoncurrent", 2023, 40000e6, "10-K"),
             ("LongTermDebtCurrent", 2023, 5000e6, "10-K"),
         )
-        units_cache = {"bs": {k: None for k in [
-            "cash", "receivables", "inventory", "total_assets",
-            "total_liabilities", "total_debt", "shareholder_equity",
-        ]}}
+        units_cache = {
+            "bs": {
+                k: None
+                for k in [
+                    "cash",
+                    "receivables",
+                    "inventory",
+                    "total_assets",
+                    "total_liabilities",
+                    "total_debt",
+                    "shareholder_equity",
+                ]
+            }
+        }
 
         _insert_statement(1, 2023, "bs", units_cache, facts=facts)
 
@@ -318,10 +362,25 @@ class TestInsertStatementEnrichment:
         facts = _make_facts(
             ("DepreciationDepletionAndAmortization", 2023, 15000e6, "10-K"),
         )
-        units_cache = {"is": {k: None for k in [
-            "revenue", "cogs", "gross_profit", "sga", "rnd", "depreciation",
-            "ebit", "interest_expense", "taxes", "net_income", "eps_diluted", "shares_diluted",
-        ]}}
+        units_cache = {
+            "is": {
+                k: None
+                for k in [
+                    "revenue",
+                    "cogs",
+                    "gross_profit",
+                    "sga",
+                    "rnd",
+                    "depreciation",
+                    "ebit",
+                    "interest_expense",
+                    "taxes",
+                    "net_income",
+                    "eps_diluted",
+                    "shares_diluted",
+                ]
+            }
+        }
 
         _insert_statement(1, 2023, "is", units_cache, facts=facts)
 
@@ -333,10 +392,25 @@ class TestInsertStatementEnrichment:
         """When facts=None, no fallback enrichment should be attempted."""
         from app.ingest.sec import _insert_statement
 
-        units_cache = {"is": {k: None for k in [
-            "revenue", "cogs", "gross_profit", "sga", "rnd", "depreciation",
-            "ebit", "interest_expense", "taxes", "net_income", "eps_diluted", "shares_diluted",
-        ]}}
+        units_cache = {
+            "is": {
+                k: None
+                for k in [
+                    "revenue",
+                    "cogs",
+                    "gross_profit",
+                    "sga",
+                    "rnd",
+                    "depreciation",
+                    "ebit",
+                    "interest_expense",
+                    "taxes",
+                    "net_income",
+                    "eps_diluted",
+                    "shares_diluted",
+                ]
+            }
+        }
 
         _insert_statement(1, 2023, "is", units_cache, facts=None)
 
@@ -355,10 +429,25 @@ class TestInsertStatementEnrichment:
             ("SellingAndMarketingExpense", 2023, 22759e6, "10-K"),
             ("GeneralAndAdministrativeExpense", 2023, 7575e6, "10-K"),
         )
-        units_cache = {"is": {k: None for k in [
-            "revenue", "cogs", "gross_profit", "sga", "rnd", "depreciation",
-            "ebit", "interest_expense", "taxes", "net_income", "eps_diluted", "shares_diluted",
-        ]}}
+        units_cache = {
+            "is": {
+                k: None
+                for k in [
+                    "revenue",
+                    "cogs",
+                    "gross_profit",
+                    "sga",
+                    "rnd",
+                    "depreciation",
+                    "ebit",
+                    "interest_expense",
+                    "taxes",
+                    "net_income",
+                    "eps_diluted",
+                    "shares_diluted",
+                ]
+            }
+        }
         # Set the primary SGA units from the combined tag
         units_cache["is"]["sga"] = _pick_first_units(facts, ["SellingGeneralAndAdministrativeExpense"])
 

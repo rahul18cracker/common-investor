@@ -4,16 +4,18 @@ Comprehensive unit tests for NLP/Four Ms service module (Moat, Management, MOS s
 This test suite aims for 90%+ coverage of app/nlp/fourm/service.py
 Following industry best practices: AAA pattern, mocking dependencies, edge cases.
 """
+
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from app.nlp.fourm.service import (
-    _series_values,
     _normalize_score,
-    compute_moat,
+    _series_values,
     compute_management,
     compute_margin_of_safety_recommendation,
+    compute_moat,
 )
-
 
 pytestmark = pytest.mark.unit
 
