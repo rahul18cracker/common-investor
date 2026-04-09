@@ -1,0 +1,17 @@
+.git
+.github
+__pycache__
+.pytest_cache
+.coverage
+htmlcov
+coverage.xml
+*.pyc
+*.pyo
+.env
+.env.*
+tests/
+docs/
+*.md
+.mypy_cache
+.ruff_cache
+scripts/workflows/baseline.json

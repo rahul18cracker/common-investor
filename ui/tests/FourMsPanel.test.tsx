@@ -599,6 +599,90 @@ describe('FourMsPanel', () => {
     })
   })
 
+  describe('Balance Sheet Resilience', () => {
+    it('displays balance sheet metrics when all values present', async () => {
+      const mockData = {
+        moat: { score: 0.75, roic_avg: 0.16, margin_stability: 0.85 },
+        management: { score: 0.6, reinvest_ratio_avg: 0.3, payout_ratio_avg: 0.2 },
+        balance_sheet_resilience: {
+          score: 4,
+          latest_coverage: 8.5,
+          debt_to_equity: 0.35,
+          latest_net_debt: 5000000000,
+          net_debt_trend: -0.12,
+        },
+        mos_recommendation: { recommended_mos: 0.4 }
+      }
+
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        json: () => Promise.resolve(mockData)
+      })
+
+      render(<FourMsPanel api={API_BASE} ticker="WMT" />)
+      fireEvent.click(screen.getByText('Analyze Moat, Management & MOS'))
+
+      await waitFor(() => {
+        expect(screen.getByText('8.5x')).toBeInTheDocument()
+        expect(screen.getByText('0.35')).toBeInTheDocument()
+        expect(screen.getByText('$5.0B')).toBeInTheDocument()
+        expect(screen.getByText('-12.0%')).toBeInTheDocument()
+      })
+    })
+
+    it('displays N/A for null balance sheet metrics', async () => {
+      const mockData = {
+        moat: { score: 0.75, roic_avg: 0.16, margin_stability: 0.85 },
+        management: { score: 0.6 },
+        balance_sheet_resilience: {
+          score: 2,
+          latest_coverage: null,
+          debt_to_equity: null,
+          latest_net_debt: null,
+          net_debt_trend: null,
+        },
+        mos_recommendation: { recommended_mos: 0.5 }
+      }
+
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        json: () => Promise.resolve(mockData)
+      })
+
+      render(<FourMsPanel api={API_BASE} ticker="WMT" />)
+      fireEvent.click(screen.getByText('Analyze Moat, Management & MOS'))
+
+      await waitFor(() => {
+        const naElements = screen.getAllByText('N/A')
+        expect(naElements.length).toBeGreaterThanOrEqual(4)
+      })
+    })
+
+    it('displays positive net debt trend with plus sign', async () => {
+      const mockData = {
+        moat: { score: 0.75, roic_avg: 0.16, margin_stability: 0.85 },
+        management: { score: 0.6 },
+        balance_sheet_resilience: {
+          score: 2,
+          latest_coverage: 3.0,
+          debt_to_equity: 1.2,
+          latest_net_debt: 10000000000,
+          net_debt_trend: 0.05,
+        },
+        mos_recommendation: { recommended_mos: 0.55 }
+      }
+
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        json: () => Promise.resolve(mockData)
+      })
+
+      render(<FourMsPanel api={API_BASE} ticker="WMT" />)
+      fireEvent.click(screen.getByText('Analyze Moat, Management & MOS'))
+
+      await waitFor(() => {
+        expect(screen.getByText('+5.0%')).toBeInTheDocument()
+      })
+    })
+  })
+
   describe('Phase E: Gross Margin Metrics', () => {
     it('displays gross margin when present', async () => {
       const mockData = {

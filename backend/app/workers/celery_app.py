@@ -1,9 +1,8 @@
-import os
-
 from celery import Celery
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
-celery_app = Celery("ci", broker=REDIS_URL, backend=REDIS_URL, include=["app.workers.tasks"])
+from app.core.config import settings
+
+celery_app = Celery("ci", broker=settings.redis_url, backend=settings.redis_url, include=["app.workers.tasks"])
 
 celery_app.conf.beat_schedule = {
     "snapshot-popular": {

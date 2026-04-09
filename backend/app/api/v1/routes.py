@@ -37,6 +37,28 @@ router = APIRouter()
 
 
 # ============================================================================
+# Response Models
+# ============================================================================
+
+
+class CompanySummary(BaseModel):
+    company: dict
+    latest_is: dict | None = None
+
+
+class MetricsResponse(BaseModel):
+    cik: str
+    growths: dict
+    growths_extended: dict
+    roic_avg_10y: float | None = None
+    debt_to_equity: float | None = None
+    fcf_growth: float | None = None
+    revenue_volatility: float | None = None
+    roic_persistence_score: int | None = None
+    latest_gross_margin: float | None = None
+
+
+# ============================================================================
 # Company List and Seed Endpoints
 # ============================================================================
 
@@ -120,7 +142,7 @@ def ingest_company(ticker: str, background_tasks: BackgroundTasks):
     return IngestResponse(status="queued", detail=f"Ingestion queued for {ticker}")
 
 
-@router.get("/company/{ticker}")
+@router.get("/company/{ticker}", response_model=CompanySummary)
 def company_summary(ticker: str):
     row = execute(
         "SELECT c.id, c.cik, c.ticker, c.name FROM company c WHERE upper(c.ticker)=upper(:t)",
@@ -169,7 +191,7 @@ def company_summary(ticker: str):
     }
 
 
-@router.get("/company/{ticker}/metrics")
+@router.get("/company/{ticker}/metrics", response_model=MetricsResponse)
 def get_metrics(ticker: str):
     """
     Get key financial metrics for a company.

@@ -11,10 +11,22 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./db-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ci}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   api:
     build: { context: ./backend }
@@ -24,10 +36,20 @@ services:
       SEC_USER_AGENT: ${SEC_USER_AGENT:-CommonInvestor/0.1 you@example.com}
       PYTHONPATH: /app
       AUTO_SEED: ${AUTO_SEED:-true}
-    depends_on: [postgres, redis]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports: ["8080:8080"]
     command: ["/bin/bash", "/app/scripts/startup.sh"]
     volumes: [ "./backend:/app" ]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   worker:
     build: { context: ./backend }
@@ -36,9 +58,14 @@ services:
       REDIS_URL: redis://redis:6379/0
       SEC_USER_AGENT: ${SEC_USER_AGENT:-CommonInvestor/0.1 you@example.com}
       PYTHONPATH: /app
-    depends_on: [postgres, redis]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     command: ["/bin/sh","-c","celery -A app.workers.celery_app worker --loglevel=INFO"]
     volumes: [ "./backend:/app" ]
+    restart: unless-stopped
 
   scheduler:
     build: { context: ./backend }
@@ -47,18 +74,31 @@ services:
       REDIS_URL: redis://redis:6379/0
       SEC_USER_AGENT: ${SEC_USER_AGENT:-CommonInvestor/0.1 you@example.com}
       PYTHONPATH: /app
-    depends_on: [redis]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     command: ["/bin/sh","-c","celery -A app.workers.celery_app beat --loglevel=INFO"]
     volumes: [ "./backend:/app" ]
+    restart: unless-stopped
 
   ui:
     build: { context: ./ui }
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8080
-    depends_on: [api]
+    depends_on:
+      api:
+        condition: service_healthy
     ports: ["3000:3000"]
     command: ["/bin/sh","-c","npm install && npm run dev -- --port 3000 --hostname 0.0.0.0"]
     volumes: [ "./ui:/usr/src/app" ]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
 volumes:
   pgdata:

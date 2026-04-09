@@ -1,15 +1,15 @@
 import logging
-import os
 
 import httpx
 
+from app.core.config import settings
 from app.core.industry import sic_to_category
 from app.db.session import execute
 
 log = logging.getLogger(__name__)
 
 SEC_HEADERS = {
-    "User-Agent": os.getenv("SEC_USER_AGENT", "CommonInvestor/0.1 you@example.com"),
+    "User-Agent": settings.sec_user_agent,
     "Accept-Encoding": "gzip, deflate",
 }
 BASE = "https://www.sec.gov"

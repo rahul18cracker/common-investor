@@ -215,19 +215,21 @@ class TestSeedTickers:
 
         mock_sleep.assert_not_called()
 
-    def test_seed_tickers_output_format(self, capsys):
-        """Test output formatting during seeding."""
+    def test_seed_tickers_output_format(self, caplog):
+        """Test log output during seeding."""
+        import logging
+
         mock_ingest_result = {"years": [2020, 2021, 2022]}
 
-        with patch("app.cli.seed.ingest_ticker") as mock_ingest:
-            mock_ingest.return_value = {"ticker": "AAPL", "status": "success", "result": mock_ingest_result}
-            with patch("time.sleep"):
-                seed_tickers(["AAPL"], delay_seconds=0)
+        with caplog.at_level(logging.INFO, logger="app.cli.seed"):
+            with patch("app.cli.seed.ingest_ticker") as mock_ingest:
+                mock_ingest.return_value = {"ticker": "AAPL", "status": "success", "result": mock_ingest_result}
+                with patch("time.sleep"):
+                    seed_tickers(["AAPL"], delay_seconds=0)
 
-        captured = capsys.readouterr()
-        assert "Seeding" in captured.out
-        assert "AAPL" in captured.out
-        assert "OK" in captured.out
+        log_text = caplog.text
+        assert "Seeding" in log_text or "seeding" in log_text.lower()
+        assert "AAPL" in log_text
 
 
 class TestMain:

@@ -1,6 +1,10 @@
+import logging
+
 from app.alerts.engine import evaluate_alerts, snapshot_price_for_ticker
 from app.ingest.sec import ingest_companyfacts_richer_by_ticker
 from app.workers.celery_app import celery_app
+
+log = logging.getLogger(__name__)
 
 
 def enqueue_ingest(ticker: str):
@@ -10,7 +14,7 @@ def enqueue_ingest(ticker: str):
 @celery_app.task(name="app.workers.tasks.ingest_company")
 def ingest_company(ticker: str):
     res = ingest_companyfacts_richer_by_ticker(ticker)
-    print(f"Ingested {res}")
+    log.info("Ingested %s: %s", ticker, res)
 
 
 @celery_app.task(name="app.workers.tasks.snapshot_prices")

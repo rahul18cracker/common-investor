@@ -1,15 +1,14 @@
-import os
 import threading
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
 
-# Get database URL from environment
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://ci:ci_pass@postgres:5432/ci_db")
+from app.core.config import settings
 
-# Check if we're in test mode
-TESTING = os.getenv("TESTING", "0") == "1"
+# Get database URL and testing flag from config
+DATABASE_URL = settings.database_url
+TESTING = settings.testing
 
 # Create engine with appropriate configuration
 if TESTING and "sqlite" in DATABASE_URL:

@@ -1,4 +1,7 @@
+import logging
 from typing import Optional
+
+log = logging.getLogger(__name__)
 
 
 def price_yfinance(ticker: str) -> Optional[float]:
@@ -9,5 +12,6 @@ def price_yfinance(ticker: str) -> Optional[float]:
         if data is None or data.empty:
             return None
         return float(data["Close"].iloc[-1])
-    except Exception:
+    except Exception as e:
+        log.warning("Price fetch failed for %s: %s", ticker, e)
         return None

@@ -351,13 +351,94 @@ describe('AlertsPanel', () => {
       mockFetch.mockResolvedValueOnce({
         status: 500,
       })
-      
+
       render(<AlertsPanel api="http://localhost:8000" ticker="MSFT" />)
-      
+
       // Should not crash, alerts should be empty
       await waitFor(() => {
         expect(screen.getByText('Alerts')).toBeInTheDocument()
       })
+    })
+
+    it('handles fetch rejection on initial load', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockFetch.mockRejectedValueOnce(new Error('Network error'))
+
+      render(<AlertsPanel api="http://localhost:8000" ticker="MSFT" />)
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Failed to load alerts:', 'Network error')
+      })
+      consoleSpy.mockRestore()
+    })
+
+    it('handles fetch rejection on create MOS alert', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockFetch
+        .mockResolvedValueOnce({ status: 200, json: () => Promise.resolve([]) })
+        .mockRejectedValueOnce(new Error('Create failed'))
+
+      render(<AlertsPanel api="http://localhost:8000" ticker="MSFT" />)
+      await waitFor(() => { expect(mockFetch).toHaveBeenCalledTimes(1) })
+
+      fireEvent.click(screen.getByText('Add: Price < MOS'))
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Failed to create alert:', 'Create failed')
+      })
+      consoleSpy.mockRestore()
+    })
+
+    it('handles fetch rejection on create threshold alert', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockFetch
+        .mockResolvedValueOnce({ status: 200, json: () => Promise.resolve([]) })
+        .mockRejectedValueOnce(new Error('Create failed'))
+      mockPrompt.mockReturnValueOnce('100')
+
+      render(<AlertsPanel api="http://localhost:8000" ticker="MSFT" />)
+      await waitFor(() => { expect(mockFetch).toHaveBeenCalledTimes(1) })
+
+      fireEvent.click(screen.getByText('Add: Price < Threshold'))
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Failed to create alert:', 'Create failed')
+      })
+      consoleSpy.mockRestore()
+    })
+
+    it('handles fetch rejection on toggle alert', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockFetch
+        .mockResolvedValueOnce({ status: 200, json: () => Promise.resolve([{ id: 1, rule_type: 'test', threshold: null, enabled: true }]) })
+        .mockRejectedValueOnce(new Error('Toggle failed'))
+
+      render(<AlertsPanel api="http://localhost:8000" ticker="MSFT" />)
+      await waitFor(() => { expect(screen.getByText('Disable')).toBeInTheDocument() })
+
+      fireEvent.click(screen.getByText('Disable'))
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Failed to toggle alert:', 'Toggle failed')
+      })
+      consoleSpy.mockRestore()
+    })
+
+    it('handles fetch rejection on delete alert', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockFetch
+        .mockResolvedValueOnce({ status: 200, json: () => Promise.resolve([{ id: 1, rule_type: 'test', threshold: null, enabled: true }]) })
+        .mockRejectedValueOnce(new Error('Delete failed'))
+
+      render(<AlertsPanel api="http://localhost:8000" ticker="MSFT" />)
+      await waitFor(() => { expect(screen.getByText('Delete')).toBeInTheDocument() })
+
+      fireEvent.click(screen.getByText('Delete'))
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Failed to delete alert:', 'Delete failed')
+      })
+      consoleSpy.mockRestore()
     })
   })
 

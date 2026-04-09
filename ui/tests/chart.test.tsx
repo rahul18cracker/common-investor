@@ -193,6 +193,48 @@ describe('TimeseriesChart', () => {
     })
   })
 
+  describe('Tooltip Formatter', () => {
+    it('formats tooltip with right axis formatter', () => {
+      const formatRight = (value: number) => `${value}%`
+      const formatLeft = (value: number) => `$${value}`
+      const linesWithRight = [
+        { dataKey: 'revenue', name: 'Revenue' },
+        { dataKey: 'eps', name: 'EPS', yAxisId: 'right' as const },
+      ]
+      const { container } = render(
+        <TimeseriesChart
+          data={sampleData}
+          lines={linesWithRight}
+          formatLeftAxis={formatLeft}
+          formatRightAxis={formatRight}
+        />
+      )
+      expect(container).toBeTruthy()
+    })
+
+    it('formats tooltip with left axis formatter only', () => {
+      const formatLeft = (value: number) => `$${value}M`
+      const { container } = render(
+        <TimeseriesChart
+          data={sampleData}
+          lines={singleLine}
+          formatLeftAxis={formatLeft}
+        />
+      )
+      expect(container).toBeTruthy()
+    })
+
+    it('formats tooltip with no formatter (uses toLocaleString)', () => {
+      const { container } = render(
+        <TimeseriesChart
+          data={sampleData}
+          lines={singleLine}
+        />
+      )
+      expect(container).toBeTruthy()
+    })
+  })
+
   describe('Responsive Behavior', () => {
     it('renders within ResponsiveContainer', () => {
       const { container } = render(

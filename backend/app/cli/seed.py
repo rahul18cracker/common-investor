@@ -13,9 +13,12 @@ Usage:
 """
 
 import argparse
+import logging
 import sys
 import time
 from typing import List
+
+log = logging.getLogger(__name__)
 
 # Default tickers - diverse mix for Rule #1 analysis
 # Tech Giants: Strong moats, consistent data
@@ -48,7 +51,7 @@ def check_db_has_companies() -> int:
         row = result.first()
         return int(row[0]) if row else 0
     except Exception as e:
-        print(f"Error checking database: {e}")
+        log.error("Error checking database: %s", e)
         return 0
 
 
@@ -72,35 +75,29 @@ def seed_tickers(tickers: List[str], delay_seconds: float = 0.5) -> dict:
     results: dict[str, list] = {"success": [], "failed": []}
     total = len(tickers)
 
-    separator = "=" * 60
-    print(f"\n{separator}")
-    print(f"  Common Investor - Seeding {total} tickers")
-    print(f"{separator}\n")
+    log.info("Seeding %d tickers", total)
 
     for i, ticker in enumerate(tickers, 1):
-        print(f"[{i}/{total}] Ingesting {ticker}...", end=" ", flush=True)
+        log.info("Ingesting %s [%d/%d]", ticker, i, total)
 
         result = ingest_ticker(ticker)
 
         if result["status"] == "success":
             years = result.get("result", {}).get("years", [])
-            print(f"OK ({len(years)} years)")
+            log.info("OK: %s (%d years)", ticker, len(years))
             results["success"].append(ticker)
         else:
-            print(f"FAILED: {result.get('error', 'Unknown error')}")
+            log.warning("FAILED: %s - %s", ticker, result.get("error", "Unknown error"))
             results["failed"].append({"ticker": ticker, "error": result.get("error")})
 
         # Rate limiting - be nice to SEC EDGAR
         if i < total:
             time.sleep(delay_seconds)
 
-    print(f"\n{separator}")
-    print("  Seeding Complete")
-    print(f"  Success: {len(results['success'])}/{total}")
+    log.info("Seeding complete: %d/%d success", len(results["success"]), total)
     if results["failed"]:
         failed_tickers = [f["ticker"] for f in results["failed"]]
-        print(f"  Failed: {failed_tickers}")
-    print(f"{separator}\n")
+        log.warning("Failed tickers: %s", failed_tickers)
 
     return results
 
@@ -139,20 +136,19 @@ def main():
 
     # Check current state
     existing_count = check_db_has_companies()
-    print(f"Current companies in database: {existing_count}")
+    log.info("Current companies in database: %d", existing_count)
 
     if args.check:
         if existing_count == 0:
-            print("Database is empty. Seeding recommended.")
+            log.info("Database is empty. Seeding recommended.")
             sys.exit(1)  # Exit code 1 = needs seeding
         else:
-            print("Database has data. No seeding needed.")
+            log.info("Database has data. No seeding needed.")
             sys.exit(0)  # Exit code 0 = no seeding needed
 
     # Decide whether to seed
     if existing_count > 0 and not args.force:
-        print(f"Database already has {existing_count} companies.")
-        print("Use --force to re-seed anyway.")
+        log.info("Database already has %d companies. Use --force to re-seed anyway.", existing_count)
         sys.exit(0)
 
     # Run seeding
