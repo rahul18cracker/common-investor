@@ -39,6 +39,8 @@ class TestSicToCategory:
         assert sic_to_category("6500") == "reits"
         assert sic_to_category("6512") == "reits"
         assert sic_to_category("6599") == "reits"
+        # REIT trust code (Realty Income SIC=6798)
+        assert sic_to_category("6798") == "reits"
 
     def test_utilities(self):
         from app.core.industry import sic_to_category
@@ -49,6 +51,9 @@ class TestSicToCategory:
         from app.core.industry import sic_to_category
         assert sic_to_category("1311") == "energy"
         assert sic_to_category("1389") == "energy"
+        # Petroleum refining (XOM SIC=2911)
+        assert sic_to_category("2911") == "energy"
+        assert sic_to_category("2900") == "energy"
 
     def test_pharma(self):
         from app.core.industry import sic_to_category
@@ -127,6 +132,38 @@ class TestSicToCategory:
         assert sic_to_category("7372") == "technology"
         # SIC 6021 is in both financials (6000-6999) and banking (6000-6199)
         assert sic_to_category("6021") == "banking"
+
+
+class TestRealWorldSicCodes:
+    """Verify SIC codes from actual SEC submissions for our stress test cohort."""
+
+    def test_msft(self):
+        from app.core.industry import sic_to_category
+        assert sic_to_category("7372") == "technology"
+
+    def test_jpm(self):
+        from app.core.industry import sic_to_category
+        assert sic_to_category("6021") == "banking"
+
+    def test_realty_income(self):
+        from app.core.industry import sic_to_category
+        assert sic_to_category("6798") == "reits"
+
+    def test_nextera_energy(self):
+        from app.core.industry import sic_to_category
+        assert sic_to_category("4911") == "utilities"
+
+    def test_starbucks(self):
+        from app.core.industry import sic_to_category
+        assert sic_to_category("5810") == "retail"
+
+    def test_exxon(self):
+        from app.core.industry import sic_to_category
+        assert sic_to_category("2911") == "energy"
+
+    def test_salesforce(self):
+        from app.core.industry import sic_to_category
+        assert sic_to_category("7372") == "technology"
 
 
 class TestSicToMetricNotes:

@@ -17,14 +17,19 @@ _SPECIFIC_RANGES = [
     (4911, 4991, "utilities"),
     # Energy (oil & gas extraction + services)
     (1311, 1389, "energy"),
+    # Energy (petroleum refining)
+    (2911, 2911, "energy"),
+    # Energy (petroleum and coal products)
+    (2900, 2999, "energy"),
     # Defense / aerospace
     (3760, 3769, "defense"),
     # Banking (depository institutions)
     (6000, 6199, "banking"),
     # Securities / investments
     (6200, 6399, "securities_investments"),
-    # REITs / real estate
+    # REITs / real estate (6500-6599 + 6798 REIT trust code)
     (6500, 6599, "reits"),
+    (6798, 6798, "reits"),
 ]
 
 # Broad SIC division ranges (fallback)

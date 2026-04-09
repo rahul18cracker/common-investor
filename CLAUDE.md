@@ -36,10 +36,14 @@ An LLM-based research agent that produces structured JSON outputs: `business_pro
 
 The project follows a phased release plan from `docs/spec-ideas/functional-spec-v4.md`:
 - **Phase 1 (current)**: Laptop monolith - search, ingest, metrics, valuation, Four Ms, exports, experimental qualitative agent.
-- **Phase 2 (planned)**: K8s deployment, NAICS/SIC ingestion, segment/geography parsing, transcripts, industry datasets, proxy ingestion, DCF, sensitivity analysis, industry-specific valuation strategies.
+  - **Phase 1A** (PRs #5, #6): Data correctness bugs fixed + XBRL tag enrichment. ✅ Complete.
+  - **Phase 1B** (PR #7): SIC industry classification from SEC submissions endpoint. ✅ Complete.
+  - **Phase 1C** (PR #7): Enriched metrics (operating margin, FCF margin, cash conversion, ROE, fiscal year end). ✅ Complete.
+  - **Quantitative foundation**: Ready for qualitative agent. See `docs/QUANTITATIVE_GAP_ANALYSIS_V2.md`.
+- **Phase 2 (planned)**: K8s deployment, quarterly (10-Q) data, TTM metrics, SBC/goodwill ingestion, metric suppression per industry, segment/geography parsing, transcripts, industry datasets, proxy ingestion, DCF, sensitivity analysis, industry-specific valuation plugins.
 - **Phase 3 (planned)**: Public API, mobile, community features.
 
-Not yet implemented: full XBRL processing (Arelle), user auth, DCF, technical signals (MA/MACD), PDF export, industry-specific valuation plugins (SaaS, financials, REIT, energy), peer resolution, risk classifier ML, segment/geography parsing.
+Not yet implemented: quarterly data (10-Q), TTM calculations, SBC ingestion, goodwill tracking, full XBRL processing (Arelle), user auth, DCF, technical signals (MA/MACD), PDF export, industry-specific valuation plugins (SaaS, financials, REIT, energy), peer resolution, risk classifier ML, segment/geography parsing, currency detection.
 
 ## Architecture
 
@@ -49,7 +53,7 @@ Not yet implemented: full XBRL processing (Arelle), user auth, DCF, technical si
 - **Frontend** (`ui/`): Next.js 13 + React 18 + TypeScript. Components in `ui/components/`, pages use App Router in `ui/app/`.
 - **Workers**: Celery tasks (`app/workers/tasks.py`) with Redis broker. Beat scheduler runs price snapshots (6h) and alert evaluation (24h).
 
-**Data flow**: SEC EDGAR API -> `app/ingest/sec.py` (CompanyFacts JSON, XBRL tag mapping with ordered fallback lists) -> PostgreSQL tables (company, filing, statement_is/bs/cf) -> `app/metrics/compute.py` (CAGR, ROIC, margins, coverage, owner earnings, volatility, share dilution) -> `app/valuation/` (sticker/MOS/payback/ten cap) -> `app/nlp/fourm/service.py` (moat/management/balance sheet/MOS recommendation scores).
+**Data flow**: SEC EDGAR API -> `app/ingest/sec.py` (CompanyFacts JSON + Submissions JSON for SIC/fiscal year, XBRL tag mapping with ordered fallback lists) -> PostgreSQL tables (company with SIC/industry, filing, statement_is/bs/cf) -> `app/metrics/compute.py` (CAGR, ROIC, operating margin, FCF margin, cash conversion, ROE, coverage, owner earnings, volatility, share dilution) -> `app/valuation/` (sticker/MOS/payback/ten cap) -> `app/nlp/fourm/service.py` (moat/management/balance sheet/MOS recommendation scores). Industry classification via `app/core/industry.py` (SIC-to-category mapping + agent guidance notes).
 
 **Key design decisions**:
 - `execute(sql, **params)` in `app/db/session.py` auto-manages transactions via `engine.begin()` and returns a `ResultWrapper` that pre-fetches rows to avoid SQLite cursor issues. Tests inject via `set_test_session()` thread-local.
