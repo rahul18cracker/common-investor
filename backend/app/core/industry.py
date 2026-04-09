@@ -4,7 +4,6 @@ Maps SEC SIC codes to broad categories and provides plain-English notes
 for the qualitative analysis agent. No metric suppression — just data.
 """
 
-
 # Specific SIC ranges checked first (more specific wins over broad)
 _SPECIFIC_RANGES = [
     # Technology (software)

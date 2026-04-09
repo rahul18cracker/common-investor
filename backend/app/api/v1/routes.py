@@ -1,35 +1,37 @@
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from fastapi.responses import PlainTextResponse, JSONResponse
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
+
+from app.core.industry import sic_to_metric_notes
+from app.core.utils import get_company_cik, safe_float, safe_int
 from app.db.session import execute
-from app.core.utils import safe_float, safe_int, get_company_cik
-from app.workers.tasks import enqueue_ingest
 from app.metrics.compute import (
+    cash_conversion_series,
     compute_growth_metrics,
     compute_growth_metrics_extended,
-    timeseries_all,
-    roic_average,
+    fcf_margin_series,
+    gross_margin_series,
     latest_debt_to_equity,
     latest_owner_earnings_growth,
+    operating_margin_series,
     quality_scores,
     revenue_volatility,
-    roic_persistence_score,
-    gross_margin_series,
-    operating_margin_series,
-    fcf_margin_series,
-    cash_conversion_series,
     roe_series,
-)
-from app.valuation.service import run_default_scenario
-from app.nlp.fourm.service import (
-    compute_moat,
-    compute_management,
-    compute_margin_of_safety_recommendation,
-    compute_balance_sheet_resilience,
+    roic_average,
+    roic_persistence_score,
+    timeseries_all,
 )
 from app.nlp.fourm.sec_item1 import get_meaning_item1
-from app.core.industry import sic_to_metric_notes
+from app.nlp.fourm.service import (
+    compute_balance_sheet_resilience,
+    compute_management,
+    compute_margin_of_safety_recommendation,
+    compute_moat,
+)
+from app.valuation.service import run_default_scenario
+from app.workers.tasks import enqueue_ingest
 
 router = APIRouter()
 
@@ -42,14 +44,12 @@ router = APIRouter()
 @router.get("/companies")
 def list_companies():
     """List all companies in the database with basic info"""
-    rows = execute(
-        """
+    rows = execute("""
         SELECT c.id, c.cik, c.ticker, c.name,
                (SELECT COUNT(*) FROM statement_is si JOIN filing f ON si.filing_id=f.id WHERE f.cik=c.cik) as years_data
         FROM company c
         ORDER BY c.ticker
-    """
-    ).fetchall()
+    """).fetchall()
     return {
         "count": len(rows),
         "companies": [
@@ -97,6 +97,7 @@ def seed_status():
     """Check the current seeding status - how many companies are loaded"""
     count_row = execute("SELECT COUNT(*) FROM company").first()
     company_count = safe_int(count_row[0]) if count_row else 0
+    company_count = company_count or 0
 
     from app.cli.seed import DEFAULT_TICKERS
 
@@ -130,20 +131,20 @@ def company_summary(ticker: str):
     company_id, cik, tick, name = row
     latest = execute(
         """
-        SELECT si.fy, si.revenue, si.cogs, si.gross_profit, si.sga, si.rnd, 
+        SELECT si.fy, si.revenue, si.cogs, si.gross_profit, si.sga, si.rnd,
                si.depreciation, si.ebit, si.interest_expense, si.taxes,
                si.net_income, si.eps_diluted, si.shares_diluted
         FROM statement_is si JOIN filing f ON si.filing_id=f.id WHERE f.cik=:cik ORDER BY si.fy DESC LIMIT 1
     """,
         cik=cik,
     ).first()
-    
+
     latest_is = None
     if latest:
         revenue = safe_float(latest[1])
         gross_profit = safe_float(latest[3])
         ebit = safe_float(latest[7])
-        
+
         latest_is = {
             "fy": latest[0],
             "revenue": revenue,
@@ -161,7 +162,7 @@ def company_summary(ticker: str):
             "gross_margin": (gross_profit / revenue) if revenue and gross_profit else None,
             "operating_margin": (ebit / revenue) if revenue and ebit else None,
         }
-    
+
     return {
         "company": {"id": company_id, "cik": cik, "ticker": tick, "name": name},
         "latest_is": latest_is,
@@ -172,7 +173,7 @@ def company_summary(ticker: str):
 def get_metrics(ticker: str):
     """
     Get key financial metrics for a company.
-    
+
     Phase D enhancements:
     - Extended growth metrics with 1y/3y/5y/10y CAGR windows
     - Revenue volatility (cyclicality indicator)
@@ -187,7 +188,7 @@ def get_metrics(ticker: str):
     fcf_growth = latest_owner_earnings_growth(cik)
     rev_volatility = revenue_volatility(cik)
     roic_persist = roic_persistence_score(cik)
-    
+
     # Get latest gross margin
     gm_series = gross_margin_series(cik)
     latest_gm = gm_series[-1]["gross_margin"] if gm_series and gm_series[-1].get("gross_margin") else None
@@ -215,7 +216,7 @@ def get_timeseries(ticker: str):
 def get_quality_scores(ticker: str):
     """
     Phase B: New endpoint returning quality-related metrics for qualitative analysis.
-    
+
     Returns:
     - gross_margin_series: Historical gross margins for trend analysis
     - latest_gross_margin: Most recent gross margin
@@ -236,7 +237,7 @@ def get_quality_scores(ticker: str):
 def get_agent_bundle(ticker: str):
     """
     D4: Return all quantitative data in agent-ready format for qualitative analysis.
-    
+
     This endpoint aggregates all metrics, scores, and time series data that the
     qualitative analysis agent needs to produce its JSON outputs (moat.json,
     unit_economics.json, peers.json, risks.json, thesis.json).
@@ -350,9 +351,7 @@ class AlertCreate(BaseModel):
 
 @router.post("/company/{ticker}/alerts")
 def create_alert(ticker: str, body: AlertCreate):
-    row = execute(
-        "SELECT id FROM company WHERE upper(ticker)=upper(:t)", t=ticker
-    ).first()
+    row = execute("SELECT id FROM company WHERE upper(ticker)=upper(:t)", t=ticker).first()
     if not row:
         raise HTTPException(404, detail="Company not found")
     cid = safe_int(row[0])
@@ -398,16 +397,14 @@ def delete_alert(alert_id: int):
 
 @router.patch("/alerts/{alert_id}")
 def toggle_alert(alert_id: int, body: AlertToggle):
-    execute(
-        "UPDATE alert_rule SET enabled=:e WHERE id=:id", e=body.enabled, id=alert_id
-    )
+    execute("UPDATE alert_rule SET enabled=:e WHERE id=:id", e=body.enabled, id=alert_id)
     return {"status": "ok", "id": alert_id, "enabled": body.enabled}
 
 
 @router.get("/company/{ticker}/fourm")
 def get_fourm_analysis(ticker: str):
     """Get Four Ms analysis for a company (Meaning, Moat, Management, Margin of Safety)
-    
+
     Phase C enhancements:
     - Moat now includes gross_margin_trend, roic_persistence_score, pricing_power_score
     - New balance_sheet_resilience section with 0-5 score
@@ -452,7 +449,7 @@ def refresh_meaning_analysis(ticker: str):
         # Check if we already have a recent meaning note for this company
         existing = execute(
             """
-            SELECT id FROM meaning_note 
+            SELECT id FROM meaning_note
             WHERE company_id = (SELECT id FROM company WHERE cik = :cik)
             AND evidence_type = 'sec_10k_item1'
             AND ts > NOW() - INTERVAL '30 days'

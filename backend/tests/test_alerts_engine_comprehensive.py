@@ -4,13 +4,15 @@ Comprehensive unit tests for alerts/engine module.
 This test suite aims for 90%+ coverage of app/alerts/engine.py
 Following industry best practices: AAA pattern, mocking external dependencies, edge cases.
 """
-import pytest
-from unittest.mock import patch, MagicMock
-from app.alerts.engine import (
-    snapshot_price_for_ticker,
-    evaluate_alerts,
-)
 
+from unittest.mock import patch
+
+import pytest
+
+from app.alerts.engine import (
+    evaluate_alerts,
+    snapshot_price_for_ticker,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -90,9 +92,7 @@ class TestEvaluateAlerts:
     def test_evaluate_alerts_price_below_threshold(self, mock_price, mock_execute):
         """Test triggering alerts when price falls below threshold."""
         # Arrange: One alert rule with threshold $100
-        mock_execute.return_value.fetchall.return_value = [
-            (1, "AAPL", "price_below_threshold", 100.0, True)
-        ]
+        mock_execute.return_value.fetchall.return_value = [(1, "AAPL", "price_below_threshold", 100.0, True)]
         mock_price.return_value = 95.00  # Below threshold
 
         # Act
@@ -109,9 +109,7 @@ class TestEvaluateAlerts:
     def test_evaluate_alerts_price_above_threshold(self, mock_price, mock_execute):
         """Test that alerts don't trigger when price is above threshold."""
         # Arrange
-        mock_execute.return_value.fetchall.return_value = [
-            (1, "AAPL", "price_below_threshold", 100.0, True)
-        ]
+        mock_execute.return_value.fetchall.return_value = [(1, "AAPL", "price_below_threshold", 100.0, True)]
         mock_price.return_value = 105.00  # Above threshold
 
         # Act
@@ -127,13 +125,9 @@ class TestEvaluateAlerts:
     def test_evaluate_alerts_price_below_mos(self, mock_price, mock_execute, mock_valuation):
         """Test triggering alerts when price falls below MOS price."""
         # Arrange
-        mock_execute.return_value.fetchall.return_value = [
-            (2, "MSFT", "price_below_mos", None, True)
-        ]
+        mock_execute.return_value.fetchall.return_value = [(2, "MSFT", "price_below_mos", None, True)]
         mock_price.return_value = 250.00
-        mock_valuation.return_value = {
-            "results": {"mos_price": 300.00}
-        }
+        mock_valuation.return_value = {"results": {"mos_price": 300.00}}
 
         # Act
         result = evaluate_alerts()
@@ -148,13 +142,9 @@ class TestEvaluateAlerts:
     def test_evaluate_alerts_price_above_mos(self, mock_price, mock_execute, mock_valuation):
         """Test that MOS alerts don't trigger when price is above MOS."""
         # Arrange
-        mock_execute.return_value.fetchall.return_value = [
-            (2, "MSFT", "price_below_mos", None, True)
-        ]
+        mock_execute.return_value.fetchall.return_value = [(2, "MSFT", "price_below_mos", None, True)]
         mock_price.return_value = 350.00
-        mock_valuation.return_value = {
-            "results": {"mos_price": 300.00}
-        }
+        mock_valuation.return_value = {"results": {"mos_price": 300.00}}
 
         # Act
         result = evaluate_alerts()
@@ -167,9 +157,7 @@ class TestEvaluateAlerts:
     def test_evaluate_alerts_no_price_data(self, mock_price, mock_execute):
         """Test that alerts are skipped when price data unavailable."""
         # Arrange
-        mock_execute.return_value.fetchall.return_value = [
-            (1, "INVALID", "price_below_threshold", 100.0, True)
-        ]
+        mock_execute.return_value.fetchall.return_value = [(1, "INVALID", "price_below_threshold", 100.0, True)]
         mock_price.return_value = None
 
         # Act
@@ -184,9 +172,7 @@ class TestEvaluateAlerts:
     def test_evaluate_alerts_valuation_error(self, mock_price, mock_execute, mock_valuation):
         """Test that valuation errors are handled gracefully."""
         # Arrange
-        mock_execute.return_value.fetchall.return_value = [
-            (2, "BADTICKER", "price_below_mos", None, True)
-        ]
+        mock_execute.return_value.fetchall.return_value = [(2, "BADTICKER", "price_below_mos", None, True)]
         mock_price.return_value = 100.00
         mock_valuation.side_effect = Exception("Valuation failed")
 
@@ -233,9 +219,7 @@ class TestEvaluateAlerts:
     def test_evaluate_alerts_threshold_none(self, mock_price, mock_execute):
         """Test that alerts with None threshold are skipped."""
         # Arrange
-        mock_execute.return_value.fetchall.return_value = [
-            (1, "AAPL", "price_below_threshold", None, True)
-        ]
+        mock_execute.return_value.fetchall.return_value = [(1, "AAPL", "price_below_threshold", None, True)]
         mock_price.return_value = 150.00
 
         # Act
@@ -249,9 +233,7 @@ class TestEvaluateAlerts:
     def test_evaluate_alerts_creates_meaning_note(self, mock_price, mock_execute):
         """Test that triggered alerts create meaning notes correctly."""
         # Arrange
-        mock_execute.return_value.fetchall.return_value = [
-            (5, "AAPL", "price_below_threshold", 100.0, True)
-        ]
+        mock_execute.return_value.fetchall.return_value = [(5, "AAPL", "price_below_threshold", 100.0, True)]
         mock_price.return_value = 95.00
 
         # Act
@@ -269,9 +251,7 @@ class TestEvaluateAlerts:
     def test_evaluate_alerts_mos_missing_results(self, mock_price, mock_execute, mock_valuation):
         """Test handling when valuation result structure is unexpected."""
         # Arrange
-        mock_execute.return_value.fetchall.return_value = [
-            (2, "MSFT", "price_below_mos", None, True)
-        ]
+        mock_execute.return_value.fetchall.return_value = [(2, "MSFT", "price_below_mos", None, True)]
         mock_price.return_value = 250.00
         mock_valuation.return_value = {}  # Missing 'results' key
 

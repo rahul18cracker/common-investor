@@ -4,16 +4,18 @@ Comprehensive unit tests for NLP/Four Ms SEC document parsing module.
 This test suite aims for 90%+ coverage of app/nlp/fourm/sec_item1.py
 Following industry best practices: AAA pattern, mocking external APIs, edge cases.
 """
+
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+
 from app.nlp.fourm.sec_item1 import (
     _company_submissions,
     _fetch_primary_doc,
-    latest_10k_primary_doc,
     extract_item_1_business,
     get_meaning_item1,
+    latest_10k_primary_doc,
 )
-
 
 # Mark all tests in this file as unit tests
 pytestmark = pytest.mark.unit
@@ -31,7 +33,7 @@ class TestCompanySubmissions:
             "cik": "0000789019",
             "entityType": "operating",
             "name": "MICROSOFT CORP",
-            "filings": {"recent": {"form": ["10-K"], "accessionNumber": ["0001564590-23-012345"]}}
+            "filings": {"recent": {"form": ["10-K"], "accessionNumber": ["0001564590-23-012345"]}},
         }
         mock_client = MagicMock()
         mock_client.__enter__.return_value.get.return_value = mock_response
@@ -131,7 +133,7 @@ class TestLatest10KPrimaryDoc:
                 "recent": {
                     "form": ["8-K", "10-Q", "10-K", "8-K"],
                     "accessionNumber": ["0001-23-001", "0001-23-002", "0001-23-003", "0001-23-004"],
-                    "primaryDocument": ["doc1.htm", "doc2.htm", "doc3.htm", "doc4.htm"]
+                    "primaryDocument": ["doc1.htm", "doc2.htm", "doc3.htm", "doc4.htm"],
                 }
             }
         }
@@ -152,7 +154,7 @@ class TestLatest10KPrimaryDoc:
                 "recent": {
                     "form": ["6-K", "20-F", "6-K"],
                     "accessionNumber": ["0001-23-001", "0001-23-002", "0001-23-003"],
-                    "primaryDocument": ["doc1.htm", "doc2.htm", "doc3.htm"]
+                    "primaryDocument": ["doc1.htm", "doc2.htm", "doc3.htm"],
                 }
             }
         }
@@ -173,7 +175,7 @@ class TestLatest10KPrimaryDoc:
                 "recent": {
                     "form": ["8-K", "10-Q", "8-K"],
                     "accessionNumber": ["0001-23-001", "0001-23-002", "0001-23-003"],
-                    "primaryDocument": ["doc1.htm", "doc2.htm", "doc3.htm"]
+                    "primaryDocument": ["doc1.htm", "doc2.htm", "doc3.htm"],
                 }
             }
         }
@@ -190,13 +192,7 @@ class TestLatest10KPrimaryDoc:
         """Test when filings data is empty."""
         # Arrange
         mock_submissions.return_value = {
-            "filings": {
-                "recent": {
-                    "form": [],
-                    "accessionNumber": [],
-                    "primaryDocument": []
-                }
-            }
+            "filings": {"recent": {"form": [], "accessionNumber": [], "primaryDocument": []}}
         }
 
         # Act
@@ -382,7 +378,12 @@ class TestGetMeaningItem1:
     @patch("app.nlp.fourm.sec_item1._fetch_primary_doc")
     @patch("app.nlp.fourm.sec_item1.latest_10k_primary_doc")
     def test_get_meaning_item1_truncates_to_25000(self, mock_latest, mock_fetch):
-        """Test that excerpt is truncated (extract_item_1_business returns max 20000, then truncated to 25000 if needed)."""
+        """
+        Test that excerpt is truncated.
+
+        extract_item_1_business returns max 20000, then truncated to 25000
+        if needed.
+        """
         # Arrange
         mock_latest.return_value = ("0001-23-001", "doc.htm")
         # Create HTML that will produce >25000 chars after extraction

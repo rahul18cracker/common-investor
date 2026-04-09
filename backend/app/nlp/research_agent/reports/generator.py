@@ -4,10 +4,10 @@ Report Generator
 Formats analysis results into markdown reports using Jinja2 templates.
 """
 
-from typing import Optional
+import logging
 from datetime import datetime
 from pathlib import Path
-import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -52,15 +52,11 @@ class ReportGenerator:
         # TODO: Implement Jinja2 template rendering
         # For now, return a placeholder template
 
-        report = self._get_placeholder_template(
-            ticker, company_name, analysis_result, cost_usd
-        )
+        report = self._get_placeholder_template(ticker, company_name, analysis_result, cost_usd)
 
         return report
 
-    def _get_placeholder_template(
-        self, ticker: str, company_name: str, analysis_result: dict, cost_usd: float
-    ) -> str:
+    def _get_placeholder_template(self, ticker: str, company_name: str, analysis_result: dict, cost_usd: float) -> str:
         """Generate a placeholder report template."""
 
         timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
@@ -68,12 +64,8 @@ class ReportGenerator:
         # Extract scores (with defaults)
         business_score = analysis_result.get("business_analysis", {}).get("score", 0.0)
         moat_score = analysis_result.get("moat_analysis", {}).get("score", 0.0)
-        management_score = analysis_result.get("management_analysis", {}).get(
-            "score", 0.0
-        )
-        overall_score = analysis_result.get("recommendation", {}).get(
-            "overall_score", 0.0
-        )
+        management_score = analysis_result.get("management_analysis", {}).get("score", 0.0)
+        overall_score = analysis_result.get("recommendation", {}).get("overall_score", 0.0)
 
         report = f"""# {company_name} ({ticker}) - Qualitative Analysis
 
@@ -185,9 +177,7 @@ and consult a financial advisor before making investment decisions.
 
         return report
 
-    def save_report(
-        self, report_content: str, ticker: str, output_path: Optional[Path] = None
-    ) -> Path:
+    def save_report(self, report_content: str, ticker: str, output_path: Optional[Path] = None) -> Path:
         """
         Save report to file.
 

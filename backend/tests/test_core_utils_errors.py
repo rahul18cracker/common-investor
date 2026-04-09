@@ -10,18 +10,21 @@ Tests cover:
 - api_error_handler: FastAPI error handler
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 
-from app.core.utils import (
+pytestmark = pytest.mark.unit
+
+from app.core.errors import ApiError, api_error_handler  # noqa: E402
+from app.core.utils import (  # noqa: E402
+    convert_row_to_dict,
     get_company_cik,
     safe_float,
     safe_int,
-    convert_row_to_dict,
 )
-from app.core.errors import ApiError, api_error_handler
 
 
 class TestGetCompanyCik:
@@ -31,10 +34,10 @@ class TestGetCompanyCik:
         """Test successful CIK retrieval."""
         mock_result = MagicMock()
         mock_result.first.return_value = ["0000789019"]
-        
+
         with patch("app.core.utils.execute", return_value=mock_result) as mock_execute:
             result = get_company_cik("MSFT")
-            
+
             assert result == "0000789019"
             mock_execute.assert_called_once()
 
@@ -42,7 +45,7 @@ class TestGetCompanyCik:
         """Test ticker lookup is case-insensitive."""
         mock_result = MagicMock()
         mock_result.first.return_value = ["0000320193"]
-        
+
         with patch("app.core.utils.execute", return_value=mock_result):
             result = get_company_cik("aapl")
             assert result == "0000320193"
@@ -51,11 +54,11 @@ class TestGetCompanyCik:
         """Test raises HTTPException when company not found."""
         mock_result = MagicMock()
         mock_result.first.return_value = None
-        
+
         with patch("app.core.utils.execute", return_value=mock_result):
             with pytest.raises(HTTPException) as exc_info:
                 get_company_cik("INVALID")
-            
+
             assert exc_info.value.status_code == 404
             assert "Company not found" in exc_info.value.detail
 
@@ -63,10 +66,10 @@ class TestGetCompanyCik:
         """Test that query uses parameterized ticker."""
         mock_result = MagicMock()
         mock_result.first.return_value = ["0000123456"]
-        
+
         with patch("app.core.utils.execute", return_value=mock_result) as mock_execute:
             get_company_cik("TEST")
-            
+
             # Verify parameterized query is used (not string concatenation)
             call_args = mock_execute.call_args
             assert ":t" in call_args[0][0]  # Query contains parameter placeholder
@@ -152,9 +155,9 @@ class TestConvertRowToDict:
         row = (2023, 1000000.5, 50000)
         fields = ["fy", "revenue", "shares"]
         type_map = {"fy": int, "revenue": float, "shares": float}
-        
+
         result = convert_row_to_dict(row, fields, type_map)
-        
+
         assert result == {"fy": 2023, "revenue": 1000000.5, "shares": 50000.0}
 
     def test_convert_row_with_none_values(self):
@@ -162,9 +165,9 @@ class TestConvertRowToDict:
         row = (2023, None, 50000)
         fields = ["fy", "revenue", "shares"]
         type_map = {"fy": int, "revenue": float, "shares": float}
-        
+
         result = convert_row_to_dict(row, fields, type_map)
-        
+
         assert result["fy"] == 2023
         assert result["revenue"] is None
         assert result["shares"] == 50000.0
@@ -174,9 +177,9 @@ class TestConvertRowToDict:
         row = (None, None, None)
         fields = ["a", "b", "c"]
         type_map = {"a": int, "b": float, "c": str}
-        
+
         result = convert_row_to_dict(row, fields, type_map)
-        
+
         assert result == {"a": None, "b": None, "c": None}
 
     def test_convert_row_string_type(self):
@@ -184,9 +187,9 @@ class TestConvertRowToDict:
         row = ("AAPL", 2023, 150.0)
         fields = ["ticker", "year", "price"]
         type_map = {"ticker": str, "year": int, "price": float}
-        
+
         result = convert_row_to_dict(row, fields, type_map)
-        
+
         assert result == {"ticker": "AAPL", "year": 2023, "price": 150.0}
 
     def test_convert_row_empty(self):
@@ -194,9 +197,9 @@ class TestConvertRowToDict:
         row = ()
         fields = []
         type_map = {}
-        
+
         result = convert_row_to_dict(row, fields, type_map)
-        
+
         assert result == {}
 
     def test_convert_row_preserves_order(self):
@@ -204,9 +207,9 @@ class TestConvertRowToDict:
         row = (1, 2, 3, 4, 5)
         fields = ["a", "b", "c", "d", "e"]
         type_map = {"a": int, "b": int, "c": int, "d": int, "e": int}
-        
+
         result = convert_row_to_dict(row, fields, type_map)
-        
+
         assert list(result.keys()) == ["a", "b", "c", "d", "e"]
         assert list(result.values()) == [1, 2, 3, 4, 5]
 
@@ -215,9 +218,9 @@ class TestConvertRowToDict:
         row = ("100", "3.14", 42)
         fields = ["int_val", "float_val", "str_val"]
         type_map = {"int_val": int, "float_val": float, "str_val": str}
-        
+
         result = convert_row_to_dict(row, fields, type_map)
-        
+
         assert result["int_val"] == 100
         assert isinstance(result["int_val"], int)
         assert result["float_val"] == 3.14
@@ -232,34 +235,34 @@ class TestApiError:
     def test_api_error_creation(self):
         """Test ApiError can be created with status code and detail."""
         error = ApiError(status_code=400, detail="Bad request")
-        
+
         assert error.status_code == 400
         assert error.detail == "Bad request"
 
     def test_api_error_is_exception(self):
         """Test ApiError is an Exception subclass."""
         error = ApiError(status_code=500, detail="Server error")
-        
+
         assert isinstance(error, Exception)
 
     def test_api_error_message(self):
         """Test ApiError message is set to detail."""
         error = ApiError(status_code=404, detail="Not found")
-        
+
         assert str(error) == "Not found"
 
     def test_api_error_can_be_raised(self):
         """Test ApiError can be raised and caught."""
         with pytest.raises(ApiError) as exc_info:
             raise ApiError(status_code=403, detail="Forbidden")
-        
+
         assert exc_info.value.status_code == 403
         assert exc_info.value.detail == "Forbidden"
 
     def test_api_error_various_status_codes(self):
         """Test ApiError with various HTTP status codes."""
         codes = [400, 401, 403, 404, 422, 500, 502, 503]
-        
+
         for code in codes:
             error = ApiError(status_code=code, detail=f"Error {code}")
             assert error.status_code == code
@@ -273,9 +276,9 @@ class TestApiErrorHandler:
         """Test handler returns JSONResponse."""
         request = MagicMock()
         error = ApiError(status_code=400, detail="Bad request")
-        
+
         response = await api_error_handler(request, error)
-        
+
         assert isinstance(response, JSONResponse)
 
     @pytest.mark.asyncio
@@ -283,9 +286,9 @@ class TestApiErrorHandler:
         """Test handler sets correct status code."""
         request = MagicMock()
         error = ApiError(status_code=404, detail="Not found")
-        
+
         response = await api_error_handler(request, error)
-        
+
         assert response.status_code == 404
 
     @pytest.mark.asyncio
@@ -293,11 +296,12 @@ class TestApiErrorHandler:
         """Test handler sets correct content."""
         request = MagicMock()
         error = ApiError(status_code=422, detail="Validation error")
-        
+
         response = await api_error_handler(request, error)
-        
+
         # JSONResponse body is bytes, decode it
         import json
+
         body = json.loads(response.body.decode())
         assert body == {"detail": "Validation error"}
 
@@ -305,7 +309,7 @@ class TestApiErrorHandler:
     async def test_api_error_handler_various_errors(self):
         """Test handler with various error types."""
         request = MagicMock()
-        
+
         test_cases = [
             (400, "Bad request"),
             (401, "Unauthorized"),
@@ -313,13 +317,14 @@ class TestApiErrorHandler:
             (404, "Resource not found"),
             (500, "Internal server error"),
         ]
-        
+
         for status_code, detail in test_cases:
             error = ApiError(status_code=status_code, detail=detail)
             response = await api_error_handler(request, error)
-            
+
             assert response.status_code == status_code
-            
+
             import json
+
             body = json.loads(response.body.decode())
             assert body["detail"] == detail

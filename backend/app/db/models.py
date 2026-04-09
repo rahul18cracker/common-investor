@@ -1,8 +1,12 @@
 from __future__ import annotations
-from sqlalchemy.orm import declarative_base, Mapped, mapped_column
-from sqlalchemy import Integer, Text, Date, DateTime, Boolean, Numeric, ForeignKey
 
-Base = declarative_base()
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, Text
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+class Base(DeclarativeBase):
+    pass
+
 
 class Company(Base):
     __tablename__ = "company"
@@ -16,6 +20,7 @@ class Company(Base):
     sic_code: Mapped[str | None] = mapped_column(Text)
     fiscal_year_end_month: Mapped[int | None] = mapped_column(Integer)
 
+
 class Filing(Base):
     __tablename__ = "filing"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -26,6 +31,7 @@ class Filing(Base):
     accepted_at: Mapped[DateTime | None] = mapped_column(DateTime)
     source_url: Mapped[str | None] = mapped_column(Text)
     checksum: Mapped[str | None] = mapped_column(Text)
+
 
 class StatementIS(Base):
     __tablename__ = "statement_is"
@@ -45,6 +51,7 @@ class StatementIS(Base):
     eps_diluted: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     shares_diluted: Mapped[float | None] = mapped_column(Numeric, nullable=True)
 
+
 class StatementBS(Base):
     __tablename__ = "statement_bs"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -58,6 +65,7 @@ class StatementBS(Base):
     total_debt: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     shareholder_equity: Mapped[float | None] = mapped_column(Numeric, nullable=True)
 
+
 class StatementCF(Base):
     __tablename__ = "statement_cf"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -68,6 +76,7 @@ class StatementCF(Base):
     buybacks: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     dividends: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     acquisitions: Mapped[float | None] = mapped_column(Numeric, nullable=True)
+
 
 class MetricsYearly(Base):
     __tablename__ = "metrics_yearly"
@@ -81,6 +90,7 @@ class MetricsYearly(Base):
     coverage: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     net_debt: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     debt_equity: Mapped[float | None] = mapped_column(Numeric, nullable=True)
+
 
 class ValuationScenario(Base):
     __tablename__ = "valuation_scenario"
@@ -99,6 +109,7 @@ class ValuationScenario(Base):
     ten_cap_ps: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     strategy: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+
 class MeaningNote(Base):
     __tablename__ = "meaning_note"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -109,6 +120,7 @@ class MeaningNote(Base):
     section: Mapped[str | None] = mapped_column(Text)
     evidence_type: Mapped[str | None] = mapped_column(Text)
 
+
 class AlertRule(Base):
     __tablename__ = "alert_rule"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -117,6 +129,7 @@ class AlertRule(Base):
     rule_type: Mapped[str] = mapped_column(Text)
     threshold: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
 
 class PriceSnapshot(Base):
     __tablename__ = "price_snapshot"

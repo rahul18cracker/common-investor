@@ -4,8 +4,8 @@ Custom Tools for Research Agent
 Tools for SEC filing retrieval, web scraping, and financial data analysis.
 """
 
-from typing import Optional, Dict, Any
 import logging
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +18,7 @@ class SECFilingTool:
         self.description = """Retrieves SEC filings (10-K, 10-Q, 8-K) for a given ticker.
         Useful for accessing business descriptions, risk factors, and management discussion."""
 
-    def get_filing(
-        self, ticker: str, form_type: str = "10-K", fetch_latest: bool = True
-    ) -> Dict[str, Any]:
+    def get_filing(self, ticker: str, form_type: str = "10-K", fetch_latest: bool = True) -> Dict[str, Any]:
         """
         Fetch SEC filing for the given ticker.
 
@@ -172,7 +170,4 @@ def get_tool(tool_name: str):
 
 def list_tools() -> list:
     """List all available tools."""
-    return [
-        {"name": tool.name, "description": tool.description}
-        for tool in AVAILABLE_TOOLS.values()
-    ]
+    return [{"name": tool.name, "description": tool.description} for tool in AVAILABLE_TOOLS.values()]

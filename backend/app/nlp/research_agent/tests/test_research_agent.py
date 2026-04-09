@@ -5,14 +5,15 @@ Unit tests for the qualitative research agent components.
 """
 
 import pytest
+
+from app.nlp.research_agent.experimental.tools import (
+    FinancialMetricsTool,
+    SECFilingTool,
+    get_tool,
+)
 from app.nlp.research_agent.experimental.workflows import (
     QualitativeResearchWorkflow,
     analyze_ticker,
-)
-from app.nlp.research_agent.experimental.tools import (
-    SECFilingTool,
-    FinancialMetricsTool,
-    get_tool,
 )
 from app.nlp.research_agent.reports.generator import ReportGenerator
 

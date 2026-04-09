@@ -69,7 +69,7 @@ def seed_tickers(tickers: List[str], delay_seconds: float = 0.5) -> dict:
 
     SEC EDGAR has rate limits, so we add a small delay between requests.
     """
-    results = {"success": [], "failed": []}
+    results: dict[str, list] = {"success": [], "failed": []}
     total = len(tickers)
 
     separator = "=" * 60
@@ -106,9 +106,7 @@ def seed_tickers(tickers: List[str], delay_seconds: float = 0.5) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Seed the Common Investor database with company data"
-    )
+    parser = argparse.ArgumentParser(description="Seed the Common Investor database with company data")
     parser.add_argument(
         "--tickers",
         type=str,

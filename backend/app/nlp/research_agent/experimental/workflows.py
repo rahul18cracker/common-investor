@@ -4,12 +4,12 @@ Research Workflows & Orchestration
 Defines the step-by-step workflow for qualitative company analysis.
 """
 
-from typing import Dict, Any, Optional
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Dict, Optional
 
-from .tools import SECFilingTool, FinancialMetricsTool, CompanyInfoTool
+from .tools import CompanyInfoTool, FinancialMetricsTool, SECFilingTool
 
 logger = logging.getLogger(__name__)
 
@@ -82,9 +82,7 @@ class QualitativeResearchWorkflow:
 
             # Step 2: Business model analysis (Meaning)
             logger.info(f"Step 2: Analyzing business model for {ticker}")
-            result.business_analysis = self._analyze_business_model(
-                ticker, company_info
-            )
+            result.business_analysis = self._analyze_business_model(ticker, company_info)
 
             # Step 3: Competitive moat analysis (Moat)
             logger.info(f"Step 3: Analyzing competitive moat for {ticker}")
@@ -128,9 +126,7 @@ class QualitativeResearchWorkflow:
 
         return data
 
-    def _analyze_business_model(
-        self, ticker: str, company_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _analyze_business_model(self, ticker: str, company_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Analyze the company's business model.
 
@@ -149,9 +145,7 @@ class QualitativeResearchWorkflow:
             "circle_of_competence_fit": "",
         }
 
-    def _analyze_moat(
-        self, ticker: str, company_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _analyze_moat(self, ticker: str, company_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Analyze competitive moat strength.
 
@@ -169,9 +163,7 @@ class QualitativeResearchWorkflow:
             "margin_assessment": "",
         }
 
-    def _analyze_management(
-        self, ticker: str, company_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _analyze_management(self, ticker: str, company_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Analyze management quality.
 
@@ -190,9 +182,7 @@ class QualitativeResearchWorkflow:
             "track_record": "",
         }
 
-    def _analyze_risks(
-        self, ticker: str, company_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _analyze_risks(self, ticker: str, company_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Identify and analyze key risk factors.
         """
@@ -207,9 +197,7 @@ class QualitativeResearchWorkflow:
             "operational_risks": [],
         }
 
-    def _generate_recommendation(
-        self, analysis_result: AnalysisResult
-    ) -> Dict[str, Any]:
+    def _generate_recommendation(self, analysis_result: AnalysisResult) -> Dict[str, Any]:
         """
         Generate final investment recommendation based on all analysis.
 

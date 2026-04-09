@@ -11,34 +11,35 @@ Tests cover all API endpoints with mocked dependencies:
 - Export endpoints
 """
 
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
-from fastapi import HTTPException
-from fastapi.testclient import TestClient
+from unittest.mock import MagicMock, patch
 
-from app.main import app
-from app.api.v1.routes import (
-    list_companies,
-    seed_database,
-    seed_status,
-    ingest_company,
-    company_summary,
-    get_metrics,
-    get_timeseries,
-    run_valuation,
-    export_metrics_csv,
-    export_valuation_json,
-    create_alert,
-    list_alerts,
-    delete_alert,
-    toggle_alert,
-    get_fourm_analysis,
-    refresh_meaning_analysis,
-    debug_modules,
-    SeedRequest,
-    ValuationRequest,
+import pytest
+from fastapi import HTTPException
+
+pytestmark = pytest.mark.unit
+
+from app.api.v1.routes import (  # noqa: E402
     AlertCreate,
     AlertToggle,
+    SeedRequest,
+    ValuationRequest,
+    company_summary,
+    create_alert,
+    debug_modules,
+    delete_alert,
+    export_metrics_csv,
+    export_valuation_json,
+    get_fourm_analysis,
+    get_metrics,
+    get_timeseries,
+    ingest_company,
+    list_alerts,
+    list_companies,
+    refresh_meaning_analysis,
+    run_valuation,
+    seed_database,
+    seed_status,
+    toggle_alert,
 )
 
 
@@ -93,7 +94,7 @@ class TestSeedDatabase:
         background_tasks = MagicMock()
         body = SeedRequest(tickers=None)
 
-        with patch("app.api.v1.routes.enqueue_ingest") as mock_enqueue:
+        with patch("app.api.v1.routes.enqueue_ingest"):
             with patch("app.cli.seed.DEFAULT_TICKERS", ["AAPL", "MSFT"]):
                 result = seed_database(body, background_tasks)
 
@@ -171,22 +172,22 @@ class TestCompanySummary:
     def test_company_summary_success(self):
         """Test successful company summary retrieval."""
         mock_company_row = (1, "0000320193", "AAPL", "Apple Inc.")
-        # Updated to match new API response: (fy, revenue, cogs, gross_profit, sga, rnd, 
+        # Updated to match new API response: (fy, revenue, cogs, gross_profit, sga, rnd,
         #   depreciation, ebit, interest_expense, taxes, net_income, eps_diluted, shares_diluted)
         mock_latest_row = (
-            2023,           # fy
-            394328000000,   # revenue
-            214137000000,   # cogs
-            180191000000,   # gross_profit
-            24932000000,    # sga
-            29915000000,    # rnd
-            11519000000,    # depreciation
-            114301000000,   # ebit
-            3933000000,     # interest_expense
-            16741000000,    # taxes
-            96995000000,    # net_income
-            6.16,           # eps_diluted
-            15744000000,    # shares_diluted
+            2023,  # fy
+            394328000000,  # revenue
+            214137000000,  # cogs
+            180191000000,  # gross_profit
+            24932000000,  # sga
+            29915000000,  # rnd
+            11519000000,  # depreciation
+            114301000000,  # ebit
+            3933000000,  # interest_expense
+            16741000000,  # taxes
+            96995000000,  # net_income
+            6.16,  # eps_diluted
+            15744000000,  # shares_diluted
         )
 
         mock_company_result = MagicMock()
@@ -290,7 +291,7 @@ class TestRunValuation:
         body = ValuationRequest(mos_pct=0.4, g=0.12, pe_cap=25, discount=0.12)
 
         with patch("app.api.v1.routes.run_default_scenario", return_value=mock_valuation) as mock_run:
-            result = run_valuation("AAPL", body)
+            run_valuation("AAPL", body)
 
             mock_run.assert_called_once_with(
                 "AAPL",
@@ -524,7 +525,7 @@ class TestRefreshMeaningAnalysis:
         with patch("app.api.v1.routes.get_company_cik", return_value="0000320193"):
             with patch("app.api.v1.routes.get_meaning_item1", return_value=mock_meaning):
                 with patch("app.api.v1.routes.execute", return_value=mock_existing_result) as mock_execute:
-                    result = refresh_meaning_analysis("AAPL")
+                    refresh_meaning_analysis("AAPL")
 
                     # Should only call execute once (for checking existing)
                     # Not twice (no INSERT since recent exists)

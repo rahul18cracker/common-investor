@@ -1,4 +1,7 @@
-import os, httpx, re
+import os
+import re
+
+import httpx
 from bs4 import BeautifulSoup
 
 SEC_HEADERS = {
@@ -7,15 +10,22 @@ SEC_HEADERS = {
     "Host": "data.sec.gov",
 }
 
+
 def _company_submissions(cik: str) -> dict:
     url = f"https://data.sec.gov/submissions/CIK{int(cik):010d}.json"
     with httpx.Client(timeout=30.0, headers=SEC_HEADERS) as client:
-        r = client.get(url); r.raise_for_status(); return r.json()
+        r = client.get(url)
+        r.raise_for_status()
+        return r.json()  # type: ignore[no-any-return]
+
 
 def _fetch_primary_doc(cik: str, accession_no_nodash: str, primary_doc: str) -> str:
     url = f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{accession_no_nodash}/{primary_doc}"
     with httpx.Client(timeout=30.0, headers=SEC_HEADERS) as client:
-        r = client.get(url); r.raise_for_status(); return r.text
+        r = client.get(url)
+        r.raise_for_status()
+        return r.text
+
 
 def latest_10k_primary_doc(cik: str):
     data = _company_submissions(cik)
@@ -28,10 +38,13 @@ def latest_10k_primary_doc(cik: str):
             return acc, doc
     return None, None
 
+
 def extract_item_1_business(html_text: str) -> str:
     soup = BeautifulSoup(html_text, "lxml")
     text = soup.get_text("\n")
-    pattern = re.compile(r"(item\s+1\.?\s*business.*?)(?=item\s+1a\.?|item\s+2\.|item\s+2\s)", re.IGNORECASE | re.DOTALL)
+    pattern = re.compile(
+        r"(item\s+1\.?\s*business.*?)(?=item\s+1a\.?|item\s+2\.|item\s+2\s)", re.IGNORECASE | re.DOTALL
+    )
     m = pattern.search(text)
     if not m:
         pattern2 = re.compile(r"(item\s+1\.?\s.*?)(?=item\s+1a\.?|item\s+2\.|item\s+2\s)", re.IGNORECASE | re.DOTALL)
@@ -41,6 +54,7 @@ def extract_item_1_business(html_text: str) -> str:
     chunk = m.group(1)
     chunk = re.sub(r"\n{3,}", "\n\n", chunk)
     return chunk.strip()
+
 
 def get_meaning_item1(cik: str) -> dict:
     acc, doc = latest_10k_primary_doc(cik)

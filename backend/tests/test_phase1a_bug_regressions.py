@@ -5,15 +5,17 @@ BUG-1: or-chain treats g=0.0 as falsy (valuation/service.py, nlp/fourm/service.p
 BUG-2: band_score division by zero when low=0 and x<0 (nlp/fourm/service.py)
 BUG-3: negative equity produces meaningless ROIC and D/E (metrics/compute.py)
 """
+
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from app.valuation.service import run_default_scenario
+
+from app.metrics.compute import latest_debt_to_equity, roic_series
 from app.nlp.fourm.service import (
     compute_management,
     compute_margin_of_safety_recommendation,
 )
-from app.metrics.compute import roic_series, latest_debt_to_equity
-
+from app.valuation.service import run_default_scenario
 
 pytestmark = pytest.mark.unit
 
@@ -31,9 +33,7 @@ class TestBug1ZeroGrowthNotFalsy:
     @patch("app.valuation.service.compute_growth_metrics")
     @patch("app.valuation.service.latest_eps")
     @patch("app.valuation.service.resolve_cik_by_ticker")
-    def test_zero_eps_growth_used_not_skipped(
-        self, mock_cik, mock_eps, mock_growth, mock_oe, mock_execute
-    ):
+    def test_zero_eps_growth_used_not_skipped(self, mock_cik, mock_eps, mock_growth, mock_oe, mock_execute):
         """g=0.0 from eps_cagr_5y must be used, not fall through to rev_cagr_5y."""
         mock_cik.return_value = "0000789019"
         mock_eps.return_value = 10.00
@@ -53,9 +53,7 @@ class TestBug1ZeroGrowthNotFalsy:
     @patch("app.valuation.service.compute_growth_metrics")
     @patch("app.valuation.service.latest_eps")
     @patch("app.valuation.service.resolve_cik_by_ticker")
-    def test_zero_rev_growth_used_when_eps_none(
-        self, mock_cik, mock_eps, mock_growth, mock_oe, mock_execute
-    ):
+    def test_zero_rev_growth_used_when_eps_none(self, mock_cik, mock_eps, mock_growth, mock_oe, mock_execute):
         """g=0.0 from rev_cagr_5y must be used when eps_cagr_5y is None."""
         mock_cik.return_value = "0000789019"
         mock_eps.return_value = 10.00
@@ -76,9 +74,7 @@ class TestBug1ZeroGrowthNotFalsy:
     @patch("app.valuation.service.compute_growth_metrics")
     @patch("app.valuation.service.latest_eps")
     @patch("app.valuation.service.resolve_cik_by_ticker")
-    def test_g_override_zero_is_respected(
-        self, mock_cik, mock_eps, mock_growth, mock_oe, mock_execute
-    ):
+    def test_g_override_zero_is_respected(self, mock_cik, mock_eps, mock_growth, mock_oe, mock_execute):
         """Explicit g_override=0.0 must be used."""
         mock_cik.return_value = "0000789019"
         mock_eps.return_value = 10.00
@@ -95,9 +91,7 @@ class TestBug1ZeroGrowthNotFalsy:
     @patch("app.valuation.service.compute_growth_metrics")
     @patch("app.valuation.service.latest_eps")
     @patch("app.valuation.service.resolve_cik_by_ticker")
-    def test_none_growth_falls_through_to_default(
-        self, mock_cik, mock_eps, mock_growth, mock_oe, mock_execute
-    ):
+    def test_none_growth_falls_through_to_default(self, mock_cik, mock_eps, mock_growth, mock_oe, mock_execute):
         """When all growth metrics are None, default 0.10 is used."""
         mock_cik.return_value = "0000789019"
         mock_eps.return_value = 10.00
@@ -118,9 +112,7 @@ class TestBug1ZeroGrowthNotFalsy:
     @patch("app.nlp.fourm.service.compute_growth_metrics")
     @patch("app.nlp.fourm.service.compute_management")
     @patch("app.nlp.fourm.service.compute_moat")
-    def test_mos_recommendation_zero_growth_not_falsy(
-        self, mock_moat, mock_mgmt, mock_growth, mock_bs
-    ):
+    def test_mos_recommendation_zero_growth_not_falsy(self, mock_moat, mock_mgmt, mock_growth, mock_bs):
         """BUG-1 in compute_margin_of_safety_recommendation: g=0.0 must not fall through."""
         mock_moat.return_value = {"score": 0.7}
         mock_mgmt.return_value = {"score": 0.6}
@@ -338,11 +330,7 @@ class TestPickFirstUnitsAnnualFilter:
 
         # Should skip CostOfRevenue (only 10-Q) and return CostOfGoodsAndServicesSold
         assert result is not None
-        assert any(
-            e.get("form") == "10-K"
-            for entries in result.values()
-            for e in entries
-        )
+        assert any(e.get("form") == "10-K" for entries in result.values() for e in entries)
 
     def test_returns_none_when_no_annual_data(self):
         """Returns None if no tag has 10-K/20-F entries."""
