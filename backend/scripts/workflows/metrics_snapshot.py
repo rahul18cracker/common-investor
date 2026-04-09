@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from app.db.session import execute
 from scripts.workflows.cohort import industry_for_ticker
+from app.core.industry import sic_to_metric_notes
 
 
 def resolve_cik(ticker: str) -> str | None:
@@ -88,6 +89,42 @@ def snapshot(ticker: str) -> dict:
         result["quality_scores"] = quality_scores(cik)
     except Exception as e:
         result["quality_scores"] = {"error": str(e)}
+
+    # Phase 1C: Enriched metrics
+    try:
+        from app.metrics.compute import (
+            operating_margin_series, fcf_margin_series,
+            cash_conversion_series, roe_series,
+        )
+        om = operating_margin_series(cik)
+        fcf = fcf_margin_series(cik)
+        cc = cash_conversion_series(cik)
+        roe = roe_series(cik)
+        result["enriched_metrics"] = {
+            "operating_margin_latest": next(
+                (x["operating_margin"] for x in reversed(om) if x["operating_margin"] is not None), None),
+            "fcf_margin_latest": next(
+                (x["fcf_margin"] for x in reversed(fcf) if x["fcf_margin"] is not None), None),
+            "cash_conversion_latest": next(
+                (x["cash_conversion"] for x in reversed(cc) if x["cash_conversion"] is not None), None),
+            "roe_latest": next(
+                (x["roe"] for x in reversed(roe) if x["roe"] is not None), None),
+        }
+    except Exception as e:
+        result["enriched_metrics"] = {"error": str(e)}
+
+    # Phase 1B: SIC-based industry context
+    try:
+        sic_row = execute(
+            "SELECT sic_code, sector, industry FROM company WHERE cik=:cik", cik=cik
+        ).first()
+        if sic_row and sic_row[0]:
+            result["sic_code"] = sic_row[0]
+            result["industry_category"] = sic_row[1]
+            result["sic_description"] = sic_row[2]
+            result["industry_notes"] = sic_to_metric_notes(sic_row[0])
+    except Exception:
+        pass
 
     # Valuation
     try:
@@ -164,6 +201,16 @@ def _detect_anomalies(snap: dict) -> list[dict]:
         score = bs_data.get("score")
         if score is not None and (score < 0 or score > 5):
             anomalies.append({"field": "four_ms.balance_sheet", "issue": f"Out of [0,5] range: {score}"})
+
+    # Enriched metrics anomalies
+    enriched = snap.get("enriched_metrics", {})
+    if isinstance(enriched, dict) and "error" not in enriched:
+        om = enriched.get("operating_margin_latest")
+        if om is not None and (om > 0.8 or om < -0.5):
+            anomalies.append({"field": "operating_margin", "issue": f"Extreme: {om:.1%}"})
+        cc = enriched.get("cash_conversion_latest")
+        if cc is not None and (cc > 5.0 or cc < -2.0):
+            anomalies.append({"field": "cash_conversion", "issue": f"Extreme: {cc:.2f}"})
 
     return anomalies
 

@@ -1,6 +1,10 @@
+import logging
 import os
 import httpx
 from app.db.session import execute
+from app.core.industry import sic_to_category
+
+log = logging.getLogger(__name__)
 
 SEC_HEADERS = {
     "User-Agent": os.getenv("SEC_USER_AGENT", "CommonInvestor/0.1 you@example.com"),
@@ -25,6 +29,18 @@ def ticker_map():
 def company_facts(cik: int) -> dict:
     # CompanyFacts API is on data.sec.gov subdomain
     return fetch_json(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json")
+
+
+def company_submissions(cik: int) -> dict:
+    """Fetch company metadata from SEC EDGAR submissions endpoint.
+
+    Returns dict with keys including:
+    - sic: SIC code (str, e.g. "7372")
+    - sicDescription: Human-readable (e.g. "SERVICES-PREPACKAGED SOFTWARE")
+    - category: Filing category
+    - fiscalYearEnd: Month as MMDD string (e.g. "0630" for June)
+    """
+    return fetch_json(f"https://data.sec.gov/submissions/CIK{cik:010d}.json")
 
 
 # ── XBRL tag fallback lists ──────────────────────────────────────────
@@ -259,15 +275,34 @@ STATEMENT_SCHEMAS = {
 }
 
 
-def upsert_company(cik: str, ticker: str, name: str | None = None):
+def upsert_company(
+    cik: str,
+    ticker: str,
+    name: str | None = None,
+    sector: str | None = None,
+    industry: str | None = None,
+    sic_code: str | None = None,
+    fiscal_year_end_month: int | None = None,
+):
     execute(
         """
-        INSERT INTO company (cik, ticker, name) VALUES (:cik, :ticker, :name)
-        ON CONFLICT (cik) DO UPDATE SET ticker=EXCLUDED.ticker, name=COALESCE(EXCLUDED.name, company.name)
+        INSERT INTO company (cik, ticker, name, sector, industry, sic_code, fiscal_year_end_month)
+        VALUES (:cik, :ticker, :name, :sector, :industry, :sic_code, :fy_end_month)
+        ON CONFLICT (cik) DO UPDATE SET
+            ticker=EXCLUDED.ticker,
+            name=COALESCE(EXCLUDED.name, company.name),
+            sector=COALESCE(EXCLUDED.sector, company.sector),
+            industry=COALESCE(EXCLUDED.industry, company.industry),
+            sic_code=COALESCE(EXCLUDED.sic_code, company.sic_code),
+            fiscal_year_end_month=COALESCE(EXCLUDED.fiscal_year_end_month, company.fiscal_year_end_month)
     """,
         cik=cik,
         ticker=ticker,
         name=name,
+        sector=sector,
+        industry=industry,
+        sic_code=sic_code,
+        fy_end_month=fiscal_year_end_month,
     )
 
 
@@ -408,6 +443,20 @@ def _insert_statement(filing_id: int, fy: int, stmt_type: str, units_cache: dict
     execute(sql, **values)
 
 
+def _parse_fiscal_year_end_month(fy_end: str | None) -> int | None:
+    """Parse fiscal year end month from SEC submissions MMDD string.
+
+    E.g. "0630" -> 6 (June), "1231" -> 12 (December).
+    Returns None if unparseable.
+    """
+    if not fy_end or len(fy_end) < 2:
+        return None
+    try:
+        return int(fy_end[:2])
+    except (ValueError, TypeError):
+        return None
+
+
 def ingest_companyfacts_richer_by_ticker(ticker: str):
     t2c = ticker_map()
     cik = t2c.get(ticker.upper())
@@ -415,7 +464,30 @@ def ingest_companyfacts_richer_by_ticker(ticker: str):
         raise ValueError(f"No CIK found for {ticker}")
     facts = company_facts(cik)
     entity = facts.get("entityName", "")
-    upsert_company(f"{cik:010d}", ticker.upper(), name=entity)
+
+    # Fetch SIC code + fiscal year end from submissions endpoint
+    sic_code = None
+    sic_description = None
+    sector = None
+    fy_end_month = None
+    try:
+        subs = company_submissions(cik)
+        sic_code = subs.get("sic", None)
+        sic_description = subs.get("sicDescription", None)
+        sector = sic_to_category(sic_code) if sic_code else None
+        fy_end_month = _parse_fiscal_year_end_month(subs.get("fiscalYearEnd"))
+    except Exception as e:
+        log.warning("Failed to fetch submissions for CIK %s: %s", cik, e)
+
+    upsert_company(
+        f"{cik:010d}",
+        ticker.upper(),
+        name=entity,
+        sector=sector,
+        industry=sic_description,
+        sic_code=sic_code,
+        fiscal_year_end_month=fy_end_month,
+    )
 
     units_cache = {"is": {}, "bs": {}, "cf": {}}
     for k, tags in IS_TAGS.items():

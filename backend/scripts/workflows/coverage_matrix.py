@@ -26,6 +26,12 @@ from app.db.session import execute
 from app.ingest.sec import ingest_companyfacts_richer_by_ticker
 from scripts.workflows.cohort import all_tickers, industry_for_ticker
 
+
+def _db_industry(cik: str) -> str | None:
+    """Look up industry_category from DB (populated by SIC mapping in 1B)."""
+    row = execute("SELECT sector FROM company WHERE cik=:cik", cik=cik).first()
+    return row[0] if row and row[0] else None
+
 IS_FIELDS = [
     "revenue", "cogs", "gross_profit", "sga", "rnd", "depreciation",
     "ebit", "interest_expense", "taxes", "net_income", "eps_diluted", "shares_diluted",
@@ -82,6 +88,9 @@ def build_matrix(tickers: list[str]) -> list[dict]:
                          "error": "not_ingested"})
             continue
 
+        # Prefer DB industry (from SIC code), fall back to cohort lookup
+        industry = _db_industry(cik) or industry_for_ticker(ticker)
+
         is_data = check_fields(cik, "statement_is", IS_FIELDS)
         bs_data = check_fields(cik, "statement_bs", BS_FIELDS)
         cf_data = check_fields(cik, "statement_cf", CF_FIELDS)
@@ -93,7 +102,7 @@ def build_matrix(tickers: list[str]) -> list[dict]:
 
         rows.append({
             "ticker": ticker,
-            "industry": industry_for_ticker(ticker),
+            "industry": industry,
             "filled": filled,
             "total": total,
             "pct": round(filled / total * 100, 1) if total else 0,

@@ -11,6 +11,11 @@
 > negative-equity companies). See **[QUANTITATIVE_GAP_ANALYSIS_V2.md](./QUANTITATIVE_GAP_ANALYSIS_V2.md)**
 > for the comprehensive plan addressing data correctness, industry classification, quarterly data,
 > and agent bundle v2.
+>
+> **UPDATE (April 2026):** V2 Phases 1D, 1A, 1B, 1C all complete (PRs #5, #6, #7). Bugs fixed,
+> industry classification added, four new metrics (operating margin, FCF margin, cash conversion,
+> ROE), fiscal year end. Quantitative foundation ready for qualitative agent. Quarterly data,
+> TTM, SBC, goodwill deferred to Phase 2.
 
 ---
 

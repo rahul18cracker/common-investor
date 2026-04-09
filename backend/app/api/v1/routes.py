@@ -16,6 +16,10 @@ from app.metrics.compute import (
     revenue_volatility,
     roic_persistence_score,
     gross_margin_series,
+    operating_margin_series,
+    fcf_margin_series,
+    cash_conversion_series,
+    roe_series,
 )
 from app.valuation.service import run_default_scenario
 from app.nlp.fourm.service import (
@@ -25,6 +29,7 @@ from app.nlp.fourm.service import (
     compute_balance_sheet_resilience,
 )
 from app.nlp.fourm.sec_item1 import get_meaning_item1
+from app.core.industry import sic_to_metric_notes
 
 router = APIRouter()
 
@@ -237,18 +242,45 @@ def get_agent_bundle(ticker: str):
     unit_economics.json, peers.json, risks.json, thesis.json).
     """
     cik = get_company_cik(ticker)
-    
-    # Get company info
+
+    # Get company info including industry fields
     row = execute(
-        "SELECT c.id, c.ticker, c.name FROM company c WHERE c.cik=:cik",
+        "SELECT c.id, c.ticker, c.name, c.sic_code, c.industry, c.sector, c.fiscal_year_end_month "
+        "FROM company c WHERE c.cik=:cik",
         cik=cik,
     ).first()
+    sic_code = row[3] if row else None
     company_info = {
         "cik": cik,
         "ticker": row[1] if row else ticker.upper(),
         "name": row[2] if row else None,
+        "sic_code": sic_code,
+        "sic_description": row[4] if row else None,
+        "industry_category": row[5] if row else None,
+        "industry_notes": sic_to_metric_notes(sic_code) if sic_code else [],
+        "fiscal_year_end_month": safe_int(row[6]) if row else None,
     }
-    
+
+    # Compute latest values for new 1C metrics
+    om_series = operating_margin_series(cik)
+    latest_om = next(
+        (x["operating_margin"] for x in reversed(om_series) if x["operating_margin"] is not None),
+        None,
+    )
+    fcf_series = fcf_margin_series(cik)
+    latest_fcf = next(
+        (x["fcf_margin"] for x in reversed(fcf_series) if x["fcf_margin"] is not None),
+        None,
+    )
+    cc_series = cash_conversion_series(cik)
+    latest_cc = next(
+        (x["cash_conversion"] for x in reversed(cc_series) if x["cash_conversion"] is not None),
+        None,
+    )
+    r_series = roe_series(cik)
+    roe_values = [x["roe"] for x in r_series if x["roe"] is not None]
+    roe_avg = (sum(roe_values) / len(roe_values)) if roe_values else None
+
     # Aggregate all quantitative data
     return {
         "company": company_info,
@@ -260,6 +292,10 @@ def get_agent_bundle(ticker: str):
             "fcf_growth": latest_owner_earnings_growth(cik),
             "revenue_volatility": revenue_volatility(cik),
             "roic_persistence_score": roic_persistence_score(cik),
+            "latest_operating_margin": latest_om,
+            "latest_fcf_margin": latest_fcf,
+            "latest_cash_conversion": latest_cc,
+            "roe_avg": roe_avg,
         },
         "quality_scores": quality_scores(cik),
         "four_ms": {

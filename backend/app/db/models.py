@@ -13,6 +13,8 @@ class Company(Base):
     sector: Mapped[str | None] = mapped_column(Text)
     industry: Mapped[str | None] = mapped_column(Text)
     currency: Mapped[str | None] = mapped_column(Text)
+    sic_code: Mapped[str | None] = mapped_column(Text)
+    fiscal_year_end_month: Mapped[int | None] = mapped_column(Integer)
 
 class Filing(Base):
     __tablename__ = "filing"
