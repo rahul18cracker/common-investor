@@ -1,6 +1,36 @@
 'use client';
 import { useState } from 'react';
 
+interface FourMsData {
+  moat?: {
+    score: number;
+    roic_persistence_score?: number;
+    roic_avg?: number;
+    margin_stability?: number;
+    latest_gross_margin?: number;
+    gross_margin_trend?: number;
+    pricing_power_score?: number;
+  };
+  management?: {
+    score: number;
+    reinvest_ratio_avg?: number;
+    payout_ratio_avg?: number;
+  };
+  balance_sheet?: {
+    score: number;
+  };
+  balance_sheet_resilience?: {
+    score: number;
+    latest_coverage?: number;
+    debt_to_equity?: number;
+    latest_net_debt?: number;
+    net_debt_trend?: number;
+  };
+  mos_recommendation?: {
+    recommended_mos: number;
+  };
+}
+
 // Helper to get score color and label (0-1 scale)
 function getScoreInfo(score: number | null | undefined): { color: string; label: string; bg: string } {
   if (score === null || score === undefined) return { color: '#666', label: 'Unknown', bg: '#f0f0f0' };
@@ -215,31 +245,35 @@ function MetricRow({
 }
 
 export default function FourMsPanel({ api, ticker }: { api: string; ticker: string }) {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<FourMsData | null>(null);
   const [meaning, setMeaning] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [meaningLoading, setMeaningLoading] = useState(false);
 
-  async function loadSummary() {
+  const loadSummary = async (): Promise<void> => {
     setLoading(true);
     try {
       const res = await fetch(`${api}/api/v1/company/${ticker}/fourm`);
       setData(await res.json());
+    } catch (e: unknown) {
+      console.error('Failed to load summary:', e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  async function refreshMeaning() {
+  const refreshMeaning = async (): Promise<void> => {
     setMeaningLoading(true);
     try {
       const res = await fetch(`${api}/api/v1/company/${ticker}/fourm/meaning/refresh`, { method: 'POST' });
       const j = await res.json();
       setMeaning(j.item1_excerpt || '');
+    } catch (e: unknown) {
+      console.error('Failed to refresh meaning:', e instanceof Error ? e.message : String(e));
     } finally {
       setMeaningLoading(false);
     }
-  }
+  };
 
   const mosPercent = data?.mos_recommendation?.recommended_mos;
   const mosInfo = mosPercent !== undefined ? (

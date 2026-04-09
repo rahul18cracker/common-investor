@@ -1,6 +1,10 @@
+import logging
+
 from app.db.session import execute
 from app.pricefeed.provider import price_yfinance
 from app.valuation.service import run_default_scenario
+
+log = logging.getLogger(__name__)
 
 
 def snapshot_price_for_ticker(ticker: str):
@@ -39,7 +43,8 @@ def evaluate_alerts():
                 mos = float(val["results"]["mos_price"])
                 if p < mos:
                     triggered.append((rid, ticker, p, "price_below_mos"))
-            except Exception:
+            except Exception as e:
+                log.warning("Valuation failed for alert %s: %s", rid, e)
                 continue
     for rid, ticker, p, typ in triggered:
         execute(

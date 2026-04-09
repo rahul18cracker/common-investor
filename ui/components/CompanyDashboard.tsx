@@ -2,6 +2,33 @@
 import { useEffect, useState } from 'react';
 import TimeseriesChart from './TimeseriesChart';
 
+interface TimeseriesData {
+  is?: Array<{
+    fy: number;
+    revenue: number | null;
+    eps: number | null;
+  }>;
+  roic?: Array<{
+    fy: number;
+    roic: number | null;
+  }>;
+  coverage?: Array<{
+    fy: number;
+    coverage: number | null;
+  }>;
+}
+
+interface ROICDataPoint extends Record<string, number | string | null> {
+  fy: number;
+  roic: number | null;
+  roicPct: string | null;
+}
+
+interface CoverageDataPoint extends Record<string, number | string | null> {
+  fy: number;
+  coverage: number | null;
+}
+
 // Info tooltip component
 function InfoTip({ text }: { text: string }) {
   return (
@@ -72,7 +99,7 @@ function ChartCard({
 }
 
 export default function CompanyDashboard({ api, ticker }: { api: string; ticker: string }) {
-  const [timeseries, setTimeseries] = useState<any | null>(null);
+  const [timeseries, setTimeseries] = useState<TimeseriesData | null>(null);
   const [err, setErr] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
 
@@ -83,8 +110,8 @@ export default function CompanyDashboard({ api, ticker }: { api: string; ticker:
         const res = await fetch(`${api}/api/v1/company/${ticker}/timeseries`);
         setTimeseries(await res.json());
         setErr(undefined);
-      } catch (e: any) {
-        setErr(String(e));
+      } catch (e: unknown) {
+        setErr(e instanceof Error ? e.message : String(e));
       } finally {
         setLoading(false);
       }
@@ -92,22 +119,22 @@ export default function CompanyDashboard({ api, ticker }: { api: string; ticker:
   }, [api, ticker]);
 
   const isData = timeseries?.is || [];
-  const roicData = (timeseries?.roic || []).map((x: any) => ({ 
-    fy: x.fy, 
+  const roicData: ROICDataPoint[] = (timeseries?.roic || []).map((x) => ({
+    fy: x.fy,
     roic: x.roic,
     roicPct: x.roic ? (x.roic * 100).toFixed(1) : null
   }));
-  const covData = (timeseries?.coverage || []).map((x: any) => ({ 
-    fy: x.fy, 
-    coverage: x.coverage 
+  const covData: CoverageDataPoint[] = (timeseries?.coverage || []).map((x) => ({
+    fy: x.fy,
+    coverage: x.coverage
   }));
 
   // Calculate some insights
   const latestROIC = roicData.length > 0 ? roicData[roicData.length - 1]?.roic : null;
-  const avgROIC = roicData.length > 0 
-    ? roicData.reduce((sum: number, x: any) => sum + (x.roic || 0), 0) / roicData.length 
+  const avgROIC = roicData.length > 0
+    ? roicData.reduce((sum: number, x) => sum + (x.roic || 0), 0) / roicData.length
     : null;
-  const roicTrend = roicData.length >= 2 
+  const roicTrend = roicData.length >= 2
     ? (roicData[roicData.length - 1]?.roic || 0) > (roicData[0]?.roic || 0) ? 'improving' : 'declining'
     : 'unknown';
 

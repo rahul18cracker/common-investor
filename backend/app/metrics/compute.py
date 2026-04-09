@@ -27,7 +27,7 @@ def cagr(first: float, last: float, years: int) -> Optional[float]:
         return None
     try:
         return float((last / first) ** (1.0 / years) - 1.0)
-    except Exception:
+    except (ZeroDivisionError, ValueError):
         return None
 
 

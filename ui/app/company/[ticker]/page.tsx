@@ -7,37 +7,47 @@ import ValuationPanel from '../../../components/ValuationPanel';
 import FourMsPanel from '../../../components/FourMsPanel';
 import AlertsPanel from '../../../components/AlertsPanel';
 
-export default function Company({ params }: { params: { ticker: string } }) {
-  const [summary, setSummary] = useState<any>(null);
+interface CompanySummary {
+  [key: string]: unknown;
+}
+
+interface CompanyPageParams {
+  params: { ticker: string };
+}
+
+export default function Company({ params }: CompanyPageParams) {
+  const [summary, setSummary] = useState<CompanySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | undefined>();
   const [ingesting, setIngesting] = useState(false);
   const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-  async function loadAll() {
+  const loadAll = async (): Promise<void> => {
     setLoading(true);
     try {
       const s = await fetch(`${api}/api/v1/company/${params.ticker}`);
       setSummary(s.status === 404 ? null : await s.json());
       setErr(undefined);
-    } catch (e: any) {
-      setErr(String(e));
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  async function handleIngest() {
+  const handleIngest = async (): Promise<void> => {
     setIngesting(true);
     try {
       await fetch(`${api}/api/v1/company/${params.ticker}/ingest`, { method: 'POST' });
       alert('Ingest queued. Data will be available in 30-60 seconds. Click Reload to refresh.');
+    } catch (e: unknown) {
+      console.error('Ingest failed:', e instanceof Error ? e.message : String(e));
     } finally {
       setIngesting(false);
     }
-  }
+  };
 
-  useEffect(() => { loadAll(); }, [params.ticker]);
+  useEffect(() => { loadAll(); }, [params.ticker, api]);
 
   const metricsCSV = `${api}/api/v1/company/${params.ticker}/export/metrics.csv`;
 
@@ -60,7 +70,7 @@ export default function Company({ params }: { params: { ticker: string } }) {
           </h1>
           {summary && (
             <p style={{ margin: '4px 0 0', color: '#6b7280', fontSize: 16 }}>
-              {summary.name || 'Company Analysis'}
+              {String(summary.name) || 'Company Analysis'}
             </p>
           )}
           <p style={{ margin: '8px 0 0', color: '#9ca3af', fontSize: 13 }}>

@@ -18,7 +18,7 @@ interface ReferenceLineConfig {
 }
 
 interface TimeseriesChartProps {
-  data: any[];
+  data: Array<Record<string, number | string | null>>;
   lines: LineConfig[];
   height?: number;
   formatLeftAxis?: (value: number) => string;
