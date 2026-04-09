@@ -12,6 +12,8 @@ import pytest
 from unittest.mock import patch, MagicMock
 import pandas as pd
 
+pytestmark = pytest.mark.unit
+
 from app.pricefeed.provider import price_yfinance
 
 

@@ -1,12 +1,12 @@
 """
-Integration tests for SEC Item 1 extraction module
+Unit tests for SEC Item 1 extraction module
 """
 import pytest
 from unittest.mock import patch, MagicMock
 import httpx
 
 
-pytestmark = pytest.mark.integration
+pytestmark = pytest.mark.unit
 
 
 class TestCompanySubmissions:

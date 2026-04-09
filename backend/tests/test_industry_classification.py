@@ -9,6 +9,8 @@ Covers:
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 
 # =============================================================================
 # Unit Tests: SIC Mapping

@@ -497,6 +497,7 @@ class TestMigrationContent:
 # Performance Tests
 # =============================================================================
 
+@pytest.mark.unit
 @pytest.mark.slow
 @pytest.mark.migration
 class TestMigrationPerformance:

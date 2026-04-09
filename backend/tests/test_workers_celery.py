@@ -257,6 +257,7 @@ class TestTaskIntegration:
 # Performance Tests
 # =============================================================================
 
+@pytest.mark.unit
 @pytest.mark.slow
 @pytest.mark.celery
 class TestTaskPerformance:

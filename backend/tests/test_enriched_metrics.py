@@ -12,6 +12,8 @@ Covers:
 import pytest
 from datetime import date
 
+pytestmark = pytest.mark.unit
+
 
 # =============================================================================
 # Helpers: Create test financial data

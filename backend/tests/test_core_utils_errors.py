@@ -15,6 +15,8 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 
+pytestmark = pytest.mark.unit
+
 from app.core.utils import (
     get_company_cik,
     safe_float,

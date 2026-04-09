@@ -13,6 +13,8 @@ from unittest.mock import patch, MagicMock, call
 import sys
 from io import StringIO
 
+pytestmark = pytest.mark.unit
+
 from app.cli.seed import (
     DEFAULT_TICKERS,
     check_db_has_companies,

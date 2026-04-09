@@ -448,3 +448,53 @@ class TestComputeMarginOfSafetyRecommendation:
 
         # Assert: Should be bounded
         assert 0.3 <= result["recommended_mos"] <= 0.7
+
+
+# =============================================================================
+# Contract tests: verify return structure and score ranges
+# (migrated from test_fourm_integration.py during A5 consolidation)
+# =============================================================================
+
+
+class TestFourmOutputContract:
+    """Verify Four Ms functions return expected structure and score ranges."""
+
+    def test_fourm_analysis_data_structure(self):
+        """Test that Four Ms analysis returns expected data structure."""
+        moat = compute_moat("0000000000")
+        mgmt = compute_management("0000000000")
+        mos = compute_margin_of_safety_recommendation("0000000000")
+
+        # Verify moat structure
+        assert isinstance(moat, dict)
+        for key in ["roic_avg", "roic_sd", "margin_stability", "score"]:
+            assert key in moat
+
+        # Verify management structure
+        assert isinstance(mgmt, dict)
+        for key in ["reinvest_ratio_avg", "payout_ratio_avg", "score"]:
+            assert key in mgmt
+
+        # Verify MOS recommendation structure
+        assert isinstance(mos, dict)
+        for key in ["recommended_mos", "drivers"]:
+            assert key in mos
+
+        # Verify drivers structure
+        assert isinstance(mos["drivers"], dict)
+        for key in ["growth", "moat_score", "mgmt_score"]:
+            assert key in mos["drivers"]
+
+    def test_fourm_analysis_score_ranges(self):
+        """Test that Four Ms analysis scores are within expected ranges."""
+        moat = compute_moat("0000000000")
+        mgmt = compute_management("0000000000")
+        mos = compute_margin_of_safety_recommendation("0000000000")
+
+        if moat["score"] is not None:
+            assert 0 <= moat["score"] <= 1
+
+        if mgmt["score"] is not None:
+            assert 0 <= mgmt["score"] <= 1
+
+        assert 0.3 <= mos["recommended_mos"] <= 0.7

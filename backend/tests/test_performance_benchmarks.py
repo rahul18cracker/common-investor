@@ -13,6 +13,8 @@ import time
 from unittest.mock import patch, MagicMock
 from typing import List, Dict
 
+pytestmark = [pytest.mark.unit, pytest.mark.slow]
+
 
 # =============================================================================
 # Test Fixtures - Mock data for consistent benchmarking

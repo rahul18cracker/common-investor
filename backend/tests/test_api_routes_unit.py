@@ -17,6 +17,8 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.main import app
+
+pytestmark = pytest.mark.unit
 from app.api.v1.routes import (
     list_companies,
     seed_database,
