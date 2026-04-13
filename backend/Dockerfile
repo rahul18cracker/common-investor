@@ -10,6 +10,13 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.lock
 # --- Production stage ---
 FROM python:3.11.15-slim
 
+# Patch OS-level CVEs that have fixes available in the base image
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip/setuptools/wheel to fix vendored CVEs (jaraco.context, wheel)
+RUN pip install --no-cache-dir --upgrade setuptools wheel
+
 # Create non-root user
 RUN groupadd --gid 1000 appuser && \
     useradd --uid 1000 --gid appuser --shell /bin/bash --create-home appuser

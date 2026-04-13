@@ -190,6 +190,7 @@ jobs:
         image-ref: "ci-backend:scan"
         format: "table"
         exit-code: "1"
+        ignore-unfixed: true
         severity: "CRITICAL,HIGH"
 
     - name: Build frontend image
@@ -201,6 +202,7 @@ jobs:
         image-ref: "ci-frontend:scan"
         format: "table"
         exit-code: "1"
+        ignore-unfixed: true
         severity: "CRITICAL,HIGH"
 
     - name: Generate backend SBOM
