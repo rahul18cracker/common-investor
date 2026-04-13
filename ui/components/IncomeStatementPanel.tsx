@@ -79,8 +79,8 @@ export default function IncomeStatementPanel({ api, ticker }: { api: string; tic
         if (!res.ok) throw new Error('Failed to fetch company data');
         const json = await res.json();
         setData(json.latest_is);
-      } catch (e: any) {
-        setError(e.message);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : String(e));
       } finally {
         setLoading(false);
       }

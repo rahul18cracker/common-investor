@@ -1,6 +1,7 @@
 # Git
 .git
 .gitignore
+.github
 
 # Environment / secrets
 .env
@@ -34,8 +35,8 @@ TEST_*.md
 .idea/
 
 # Scripts and docs (not needed in production image)
-scripts/
 docs/
+scripts/workflows/baseline.json
 
 # Docker
 Dockerfile
@@ -44,3 +45,4 @@ docker-compose.yml
 
 # Alembic migrations are INCLUDED (needed for DB setup)
 # app/ is INCLUDED (the application code)
+# scripts/ is INCLUDED (startup.sh needed)

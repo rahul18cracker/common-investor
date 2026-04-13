@@ -1,6 +1,19 @@
 'use client';
 import { useState } from 'react';
 
+interface ValuationResult {
+  sticker: number | null;
+  mos_price: number | null;
+  ten_cap_price: number | null;
+  payback_years: number | null;
+  eps0: number | null;
+  g: number | null;
+  future_eps: number | null;
+  pe_used: number | null;
+  future_price: number | null;
+  owner_earnings: number | null;
+}
+
 // Info tooltip component
 function InfoTip({ text }: { text: string }) {
   return (
@@ -140,11 +153,11 @@ export default function ValuationPanel({ api, ticker }: { api: string; ticker: s
   const [growth, setGrowth] = useState<number>(10);
   const [peCap, setPeCap] = useState<number>(20);
   const [discount, setDiscount] = useState<number>(15);
-  const [valuation, setValuation] = useState<any>(null);
+  const [valuation, setValuation] = useState<ValuationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  async function runValuation() {
+  const runValuation = async (): Promise<void> => {
     setLoading(true);
     try {
       const res = await fetch(`${api}/api/v1/company/${ticker}/valuation`, {
@@ -158,10 +171,12 @@ export default function ValuationPanel({ api, ticker }: { api: string; ticker: s
         })
       });
       setValuation(await res.json());
+    } catch (e: unknown) {
+      console.error('Valuation calculation failed:', e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   const exportUrl = `${api}/api/v1/company/${ticker}/export/valuation.json?mos_pct=${mosPct / 100}`;
 

@@ -1,32 +1,59 @@
 'use client';
 import { useEffect, useState } from 'react';
 
-export default function AlertsPanel({ api, ticker }:{ api:string, ticker:string }){
-  const [alerts, setAlerts] = useState<any[]>([]);
-  async function reload(){
-    const res = await fetch(`${api}/api/v1/company/${ticker}/alerts`);
-    setAlerts(res.status===200 ? await res.json() : []);
-  }
-  useEffect(()=>{ reload(); }, [ticker]);
+interface Alert {
+  id: number;
+  rule_type: string;
+  threshold: number | null;
+  enabled: boolean;
+}
 
-  async function createPriceBelowMOS(){
-    await fetch(`${api}/api/v1/company/${ticker}/alerts`,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ rule_type:'price_below_mos' }) });
-    reload();
-  }
-  async function createBelowThreshold(){
+export default function AlertsPanel({ api, ticker }:{ api:string, ticker:string }){
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const reload = async (): Promise<void> => {
+    try {
+      const res = await fetch(`${api}/api/v1/company/${ticker}/alerts`);
+      setAlerts(res.status===200 ? await res.json() : []);
+    } catch (e: unknown) {
+      console.error('Failed to load alerts:', e instanceof Error ? e.message : String(e));
+    }
+  };
+  useEffect(()=>{ reload(); }, [api, ticker]);
+
+  const createPriceBelowMOS = async (): Promise<void> => {
+    try {
+      await fetch(`${api}/api/v1/company/${ticker}/alerts`,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ rule_type:'price_below_mos' }) });
+      await reload();
+    } catch (e: unknown) {
+      console.error('Failed to create alert:', e instanceof Error ? e.message : String(e));
+    }
+  };
+  const createBelowThreshold = async (): Promise<void> => {
     const thr = prompt('Threshold price?');
     if (!thr) return;
-    await fetch(`${api}/api/v1/company/${ticker}/alerts`,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ rule_type:'price_below_threshold', threshold: Number(thr) }) });
-    reload();
-  }
-  async function toggleAlert(id:number, enabled:boolean){
-    await fetch(`${api}/api/v1/alerts/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ enabled }) });
-    reload();
-  }
-  async function deleteAlert(id:number){
-    await fetch(`${api}/api/v1/alerts/${id}`, { method:'DELETE' });
-    reload();
-  }
+    try {
+      await fetch(`${api}/api/v1/company/${ticker}/alerts`,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ rule_type:'price_below_threshold', threshold: Number(thr) }) });
+      await reload();
+    } catch (e: unknown) {
+      console.error('Failed to create alert:', e instanceof Error ? e.message : String(e));
+    }
+  };
+  const toggleAlert = async (id:number, enabled:boolean): Promise<void> => {
+    try {
+      await fetch(`${api}/api/v1/alerts/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ enabled }) });
+      await reload();
+    } catch (e: unknown) {
+      console.error('Failed to toggle alert:', e instanceof Error ? e.message : String(e));
+    }
+  };
+  const deleteAlert = async (id:number): Promise<void> => {
+    try {
+      await fetch(`${api}/api/v1/alerts/${id}`, { method:'DELETE' });
+      await reload();
+    } catch (e: unknown) {
+      console.error('Failed to delete alert:', e instanceof Error ? e.message : String(e));
+    }
+  };
   return (
     <section style={{ marginTop: 24 }}>
       <h2>Alerts</h2>
@@ -45,7 +72,7 @@ export default function AlertsPanel({ api, ticker }:{ api:string, ticker:string 
           </tr>
         </thead>
         <tbody>
-          {alerts.map(a=> (
+          {alerts.map((a: Alert)=> (
             <tr key={a.id}>
               <td style={{ padding:6 }}>{a.id}</td>
               <td style={{ padding:6 }}>{a.rule_type}</td>

@@ -1,6 +1,7 @@
 # Git
 .git
 .gitignore
+.github
 
 # Environment / secrets
 .env
@@ -13,6 +14,8 @@ node_modules/
 # Build output (rebuilt in container)
 .next/
 out/
+dist/
+build/
 
 # Test and coverage
 tests/

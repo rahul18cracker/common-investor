@@ -275,8 +275,8 @@ export default function BigFivePanel({ api, ticker }: { api: string; ticker: str
         if (!res.ok) throw new Error('Failed to fetch metrics');
         const data = await res.json();
         setMetrics(data);
-      } catch (e: any) {
-        setError(e.message);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : String(e));
       } finally {
         setLoading(false);
       }

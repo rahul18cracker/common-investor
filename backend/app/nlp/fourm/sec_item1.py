@@ -1,11 +1,12 @@
-import os
 import re
 
 import httpx
 from bs4 import BeautifulSoup
 
+from app.core.config import settings
+
 SEC_HEADERS = {
-    "User-Agent": os.getenv("SEC_USER_AGENT", "CommonInvestor/0.1 you@example.com"),
+    "User-Agent": settings.sec_user_agent,
     "Accept-Encoding": "gzip, deflate",
     "Host": "data.sec.gov",
 }

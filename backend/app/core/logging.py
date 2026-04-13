@@ -1,9 +1,17 @@
-"""Logging configuration for the application"""
+"""Logging configuration for the application."""
 
-from fastapi import FastAPI
+import logging
+import sys
 
 
-def init_logging(app: FastAPI):
-    """Initialize logging for the FastAPI application"""
-    # Basic logging setup - can be extended with structured logging later
-    pass
+def init_logging(log_level: str = "INFO"):
+    """Initialize application logging with structured format."""
+    logging.basicConfig(
+        level=getattr(logging, log_level.upper(), logging.INFO),
+        format="%(asctime)s [%(levelname)8s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        handlers=[logging.StreamHandler(sys.stdout)],
+    )
+    # Quiet noisy libraries
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)

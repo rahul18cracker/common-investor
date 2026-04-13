@@ -8,7 +8,11 @@ echo "=== Common Investor API Startup ==="
 
 # Wait for database to be ready
 echo "Waiting for database..."
-sleep 10
+until python -c "import socket; s=socket.create_connection(('postgres',5432)); s.close()" 2>/dev/null; do
+  echo "  Database not ready, retrying in 2s..."
+  sleep 2
+done
+echo "Database is ready."
 
 # Run database migrations
 echo "Running database migrations..."

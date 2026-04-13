@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.routes import router as v1_router
+from app.core.config import settings
 from app.core.errors import ApiError, api_error_handler
 from app.core.logging import init_logging
 
@@ -16,7 +17,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-init_logging(app)
+init_logging(settings.log_level)
 app.include_router(v1_router, prefix="/api/v1")
 app.add_exception_handler(ApiError, api_error_handler)  # type: ignore[arg-type]
 
