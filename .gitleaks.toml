@@ -1,0 +1,21 @@
+title = "Common Investor gitleaks config"
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+    '''\.env\.example$''',
+    '''tests/''',
+    '''conftest\.py$''',
+    '''docs/''',
+    '''\.md$''',
+]
+
+# Allowlist known non-secret patterns
+regexTarget = "match"
+regexes = [
+    # CI test credentials (not real secrets)
+    '''ci_pass''',
+    '''ci@example\.com''',
+    # Docker compose default env var syntax
+    '''\$\{.*:-.*\}''',
+]

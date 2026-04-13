@@ -1,0 +1,37 @@
+# Git
+.git
+.gitignore
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies (rebuilt in container)
+node_modules/
+
+# Build output (rebuilt in container)
+.next/
+out/
+
+# Test and coverage
+tests/
+coverage/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+vitest.config.*
+playwright.config.*
+
+# IDE
+.vscode/
+.idea/
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Docs
+*.md

@@ -2,19 +2,29 @@ version: "3.9"
 
 services:
   postgres:
-    image: ankane/pgvector:latest
+    image: pgvector/pgvector:0.8.2-pg16
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ci}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ci_pass}
       POSTGRES_DB: ${POSTGRES_DB:-ci_db}
-    ports: ["5432:5432"]
+    networks: [backend]
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./db-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ci}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
-    image: redis:7-alpine
-    ports: ["6379:6379"]
+    image: redis:7.4-alpine
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   api:
     build: { context: ./backend }
@@ -24,8 +34,13 @@ services:
       SEC_USER_AGENT: ${SEC_USER_AGENT:-CommonInvestor/0.1 you@example.com}
       PYTHONPATH: /app
       AUTO_SEED: ${AUTO_SEED:-true}
-    depends_on: [postgres, redis]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports: ["8080:8080"]
+    networks: [backend, frontend]
     command: ["/bin/bash", "/app/scripts/startup.sh"]
     volumes: [ "./backend:/app" ]
 
@@ -36,7 +51,12 @@ services:
       REDIS_URL: redis://redis:6379/0
       SEC_USER_AGENT: ${SEC_USER_AGENT:-CommonInvestor/0.1 you@example.com}
       PYTHONPATH: /app
-    depends_on: [postgres, redis]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [backend]
     command: ["/bin/sh","-c","celery -A app.workers.celery_app worker --loglevel=INFO"]
     volumes: [ "./backend:/app" ]
 
@@ -47,7 +67,10 @@ services:
       REDIS_URL: redis://redis:6379/0
       SEC_USER_AGENT: ${SEC_USER_AGENT:-CommonInvestor/0.1 you@example.com}
       PYTHONPATH: /app
-    depends_on: [redis]
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [backend]
     command: ["/bin/sh","-c","celery -A app.workers.celery_app beat --loglevel=INFO"]
     volumes: [ "./backend:/app" ]
 
@@ -57,8 +80,15 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:8080
     depends_on: [api]
     ports: ["3000:3000"]
+    networks: [frontend]
     command: ["/bin/sh","-c","npm install && npm run dev -- --port 3000 --hostname 0.0.0.0"]
     volumes: [ "./ui:/usr/src/app" ]
+
+networks:
+  backend:
+    # postgres, redis, api, worker, scheduler — DB/cache not exposed to host
+  frontend:
+    # api, ui — only api and ui exposed to host
 
 volumes:
   pgdata:

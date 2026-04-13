@@ -1,0 +1,25 @@
+# Security-sensitive files require explicit review
+# These patterns catch changes to CI, Docker, dependencies, and secrets config
+
+# CI/CD pipeline
+.github/workflows/         @rahul18cracker
+.github/dependabot.yml     @rahul18cracker
+
+# Docker and infrastructure
+**/Dockerfile               @rahul18cracker
+docker-compose.yml          @rahul18cracker
+.dockerignore               @rahul18cracker
+
+# Dependencies
+backend/requirements*.txt   @rahul18cracker
+backend/requirements*.lock  @rahul18cracker
+ui/package.json             @rahul18cracker
+ui/package-lock.json        @rahul18cracker
+
+# Security configuration
+.pre-commit-config.yaml     @rahul18cracker
+.gitleaks.toml              @rahul18cracker
+backend/pyproject.toml      @rahul18cracker
+
+# Environment and secrets patterns
+.env*                       @rahul18cracker
