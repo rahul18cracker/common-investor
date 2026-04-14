@@ -9,6 +9,10 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.lock
 # --- Production stage ---
 FROM python:3.11-alpine
 
+# Patch OS-level CVEs (openssl, zlib) and Python vendored CVEs (jaraco.context, wheel)
+RUN apk upgrade --no-cache && \
+    pip install --no-cache-dir --upgrade setuptools wheel
+
 # Create non-root user
 RUN addgroup -g 1000 appuser && \
     adduser -u 1000 -G appuser -s /bin/sh -D appuser
