@@ -1,4 +1,4 @@
-FROM node:20.20.2-alpine
+FROM node:25.9.0-alpine
 
 # Patch OS-level CVEs (openssl, zlib)
 RUN apk upgrade --no-cache
