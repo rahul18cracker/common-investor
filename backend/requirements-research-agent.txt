@@ -65,7 +65,7 @@ typing_extensions==4.15.0
 urllib3==2.5.0
 uuid_utils==0.11.1
 wcmatch==10.1
-websockets==15.0.1
+websockets==16.0
 wrapt==2.0.1
 xxhash==3.6.0
 yarl==1.22.0
