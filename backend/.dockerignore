@@ -1,17 +1,48 @@
+# Git
 .git
+.gitignore
 .github
-__pycache__
-.pytest_cache
-.coverage
-htmlcov
-coverage.xml
-*.pyc
-*.pyo
+
+# Environment / secrets
 .env
 .env.*
+!.env.example
+
+# Python artifacts
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+dist/
+build/
+.eggs/
+
+# Test and coverage
 tests/
+htmlcov/
+.coverage
+coverage.xml
+.pytest_cache/
+TEST_*.md
+
+# Development tools
+.mypy_cache/
+.ruff_cache/
+.pre-commit-config.yaml
+
+# IDE
+.vscode/
+.idea/
+
+# Scripts and docs (not needed in production image)
 docs/
-*.md
-.mypy_cache
-.ruff_cache
 scripts/workflows/baseline.json
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Alembic migrations are INCLUDED (needed for DB setup)
+# app/ is INCLUDED (the application code)
+# scripts/ is INCLUDED (startup.sh needed)

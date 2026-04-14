@@ -8,13 +8,13 @@ from app.core.logging import init_logging
 
 app = FastAPI(title="Common Investor API", version="0.1.0")
 
-# Configure CORS
+# Configure CORS — restrict to actual methods/headers used by the frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 init_logging(settings.log_level)

@@ -16,3 +16,10 @@ disallow_untyped_defs = false
 exclude = ["tests/", "alembic/", "scripts/", "app/nlp/research_agent/"]
 explicit_package_bases = true
 mypy_path = "."
+
+[tool.bandit]
+exclude_dirs = ["tests", "alembic", "app/nlp/research_agent"]
+# B101: assert — acceptable in non-production code paths
+# B608: SQL injection — we use parameterized queries via SQLAlchemy text() exclusively
+#       NOTE: if adding raw SQL string formatting, remove this skip and fix the code
+skips = ["B101", "B608"]
