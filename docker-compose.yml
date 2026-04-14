@@ -43,7 +43,7 @@ services:
         condition: service_healthy
     ports: ["8080:8080"]
     networks: [backend, frontend]
-    command: ["/bin/bash", "/app/scripts/startup.sh"]
+    command: ["/bin/sh", "/app/scripts/startup.sh"]
     volumes: [ "./backend:/app" ]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]

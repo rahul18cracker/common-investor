@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Startup script for Common Investor API
 # Handles migrations and optional auto-seeding on first startup
 

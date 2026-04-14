@@ -1,25 +1,17 @@
-FROM python:3.11.15-slim AS builder
+FROM python:3.11-alpine AS builder
 
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache build-base
 
 WORKDIR /build
 COPY requirements.lock /build/requirements.lock
 RUN pip install --no-cache-dir --prefix=/install -r requirements.lock
 
 # --- Production stage ---
-FROM python:3.11.15-slim
-
-# Patch OS-level CVEs that have fixes available in the base image
-RUN apt-get update && apt-get upgrade -y --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
-
-# Upgrade pip/setuptools/wheel to fix vendored CVEs (jaraco.context, wheel)
-RUN pip install --no-cache-dir --upgrade setuptools wheel
+FROM python:3.11-alpine
 
 # Create non-root user
-RUN groupadd --gid 1000 appuser && \
-    useradd --uid 1000 --gid appuser --shell /bin/bash --create-home appuser
+RUN addgroup -g 1000 appuser && \
+    adduser -u 1000 -G appuser -s /bin/sh -D appuser
 
 # Copy installed packages from builder
 COPY --from=builder /install /usr/local

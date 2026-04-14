@@ -1,8 +1,5 @@
 FROM node:20.20.2-alpine
 
-# Create non-root user
-RUN addgroup -g 1000 appuser && adduser -u 1000 -G appuser -s /bin/sh -D appuser
-
 WORKDIR /usr/src/app
 
 # Install dependencies as root (needs write to node_modules)
@@ -12,10 +9,11 @@ RUN npm ci --ignore-scripts && npm cache clean --force
 # Copy application code
 COPY . .
 
-# Own the app directory
-RUN chown -R appuser:appuser /usr/src/app
+# Own the app directory and switch to non-root user
+# node:alpine ships with 'node' user (uid 1000) built-in
+RUN chown -R node:node /usr/src/app
 
-USER appuser
+USER node
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \

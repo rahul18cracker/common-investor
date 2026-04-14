@@ -22,7 +22,7 @@ All stages 1-4 implemented plus additional hardening beyond the original plan.
 | **Trivy filesystem scan** blocking | Done | `exit-code: 1`, scans full repo |
 | **Trivy image scan** in CI | Done | New `scan-images` job for backend + frontend |
 | **SBOM generation** | Done | CycloneDX format, uploaded as CI artifact |
-| **Docker image pinning** | Done | python:3.11.15-slim, node:20.20.2-alpine, pgvector:0.8.2-pg16, redis:7.4-alpine |
+| **Docker image pinning** | Done | python:3.11-alpine, node:20.20.2-alpine, pgvector:0.8.2-pg16, redis:7.4-alpine |
 | **Python lock files** | Done | `requirements.lock` + `requirements-dev.lock` via pip-compile |
 | **Next.js upgrade** | Done | 13.5.6 -> 14.2.35 |
 | **Node.js upgrade** | Done | 18-alpine -> 20.20.2-alpine |
@@ -33,7 +33,8 @@ All stages 1-4 implemented plus additional hardening beyond the original plan.
 |------|--------|-------|
 | **`.dockerignore`** for backend + ui | Done | Prevents .env/.git/test files in images |
 | **Non-root containers** | Done | `USER appuser` in both Dockerfiles |
-| **Multi-stage build** (backend) | Done | build-essential not in production image |
+| **Alpine base image** (backend) | Done | Switched from Debian slim to Alpine — eliminates 9+ OS CVEs (ncurses, openssl, systemd) at source |
+| **Multi-stage build** (backend) | Done | build-base not in production image |
 | **Docker healthchecks** | Done | In Dockerfiles + docker-compose.yml |
 | **GitHub Actions SHA-pinned** | Done | All 7 actions pinned to commit SHAs |
 | **`GITHUB_TOKEN` scoped** | Done | Top-level `permissions: contents: read` |
@@ -89,7 +90,7 @@ All stages 1-4 implemented plus additional hardening beyond the original plan.
 **Docker images:**
 | Service | Image | Tag | Risk |
 |---------|-------|-----|------|
-| Backend API | python | 3.11-slim | OK — slim variant, Python 3.11 EOL Oct 2027 |
+| Backend API | python | 3.11-alpine | OK — Alpine minimal, Python 3.11 EOL Oct 2027 |
 | Frontend | node | 18-alpine | HIGH — Node 18 EOL April 2025 |
 | PostgreSQL | ankane/pgvector | latest | CRITICAL — unpinned |
 | Redis | redis | 7-alpine | LOW — major version pinned, alpine |
@@ -533,8 +534,9 @@ pytest tests/ --tb=short -q
 | `.github/workflows/ci.yml` | SHA-pinned actions, pip-audit, bandit, Trivy blocking, image scan + SBOM job, scoped permissions |
 | `.github/workflows/frontend-tests.yml` | SHA-pinned actions, npm audit (critical), Trivy blocking, scoped permissions |
 | `.github/CODEOWNERS` | NEW — review gates for security-sensitive files |
-| `docker-compose.yml` | Pin images, network isolation (backend/frontend), healthchecks, service_healthy depends_on |
-| `backend/Dockerfile` | Multi-stage build, pin python:3.11.15-slim, non-root USER, healthcheck |
+| `docker-compose.yml` | Pin images, network isolation, healthchecks, /bin/sh for Alpine compat |
+| `backend/scripts/startup.sh` | Changed shebang from `#!/bin/bash` to `#!/bin/sh` for Alpine |
+| `backend/Dockerfile` | Multi-stage Alpine build, non-root USER, healthcheck, zero OS CVEs |
 | `backend/.dockerignore` | NEW — prevent .env/.git/tests from entering images |
 | `ui/Dockerfile` | Upgrade node:20.20.2-alpine, non-root USER, npm ci, healthcheck |
 | `ui/.dockerignore` | NEW — prevent .env/.git/node_modules/tests from entering images |
@@ -584,3 +586,46 @@ All criteria met:
 | Add semgrep for deeper SAST | Low | ~1 hour |
 | Runtime secret rotation policy | Low | Phase 2 |
 | Branch protection rules (GitHub settings) | Medium | Manual config |
+
+---
+
+## Production Security Roadmap (Before Phase 2)
+
+These items are NOT required for Phase 1 (laptop monolith) but **must** be addressed before any production/K8s deployment.
+
+### Docker Base Images — Harden Further
+
+| Current | Phase 2 Target | Why |
+|---------|---------------|-----|
+| `python:3.11-alpine` | `cgr.dev/chainguard/python:3.11` | Distroless: no shell, no package manager, near-zero OS CVE surface |
+| `node:20-alpine` | `cgr.dev/chainguard/node:20` | Same benefits as above |
+
+**Trade-offs of distroless:**
+- No shell means no `startup.sh` — must rewrite as Python entrypoint or use init containers
+- No `apk add` or `apt-get` — all dependencies must be in the image at build time
+- Debugging requires ephemeral debug containers (`kubectl debug`) instead of `exec sh`
+- Chainguard images are free for latest tags, paid for pinned versions
+
+**Migration checklist:**
+- [ ] Rewrite `startup.sh` as Python entrypoint script (no shell dependency)
+- [ ] Test all C-extension packages build in Chainguard builder stage
+- [ ] Set up ephemeral debug container workflow for K8s troubleshooting
+- [ ] Evaluate Chainguard free tier vs paid for version pinning needs
+- [ ] Run full Trivy scan on Chainguard images to verify CVE baseline
+
+### Runtime Security (Phase 2)
+
+- [ ] Read-only root filesystem (`readOnlyRootFilesystem: true` in K8s securityContext)
+- [ ] Drop all Linux capabilities (`drop: ["ALL"]`)
+- [ ] Network policies (Calico/Cilium) to replace Docker Compose network isolation
+- [ ] Secret management via Vault/AWS Secrets Manager (not env vars)
+- [ ] Pod security standards (restricted profile)
+- [ ] Image signing and verification (cosign/sigstore)
+- [ ] Container runtime security (Falco or equivalent)
+
+### Supply Chain (Phase 2)
+
+- [ ] Pin all Docker base images by SHA digest (not just tag)
+- [ ] SLSA provenance for CI builds
+- [ ] Attestation verification in deployment pipeline
+- [ ] Private package registry for Python/npm (avoid typosquatting)
