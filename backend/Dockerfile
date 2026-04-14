@@ -1,4 +1,4 @@
-FROM python:3.11-alpine AS builder
+FROM python:3.14-alpine AS builder
 
 RUN apk add --no-cache build-base
 
@@ -7,7 +7,7 @@ COPY requirements.lock /build/requirements.lock
 RUN pip install --no-cache-dir --prefix=/install -r requirements.lock
 
 # --- Production stage ---
-FROM python:3.11-alpine
+FROM python:3.14-alpine
 
 # Patch OS-level CVEs (openssl, zlib) and Python vendored CVEs (jaraco.context, wheel)
 RUN apk upgrade --no-cache && \
