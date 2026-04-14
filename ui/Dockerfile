@@ -1,5 +1,8 @@
 FROM node:20.20.2-alpine
 
+# Patch OS-level CVEs (openssl, zlib)
+RUN apk upgrade --no-cache
+
 WORKDIR /usr/src/app
 
 # Install dependencies as root (needs write to node_modules)

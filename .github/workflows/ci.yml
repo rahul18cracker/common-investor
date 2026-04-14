@@ -203,6 +203,7 @@ jobs:
         format: "table"
         exit-code: "1"
         ignore-unfixed: true
+        vuln-type: "os"  # npm CVEs handled by npm audit step; image scan checks OS only
         severity: "CRITICAL,HIGH"
 
     - name: Generate backend SBOM
