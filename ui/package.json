@@ -5,7 +5,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:unit": "vitest --environment jsdom --run"
+    "test:unit": "vitest --environment jsdom --run",
+    "test:coverage": "vitest --run --coverage"
   },
   "dependencies": {
     "next": "15.5.15",
