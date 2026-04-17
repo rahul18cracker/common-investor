@@ -5,6 +5,7 @@ Formats analysis results into markdown reports using Jinja2 templates.
 """
 
 import logging
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -192,7 +193,7 @@ and consult a financial advisor before making investment decisions.
         if output_path is None:
             timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
             filename = f"{ticker}_qualitative_report_{timestamp}.md"
-            output_path = Path("/tmp") / filename
+            output_path = Path(tempfile.gettempdir()) / filename
 
         output_path.write_text(report_content)
         logger.info(f"Report saved to: {output_path}")

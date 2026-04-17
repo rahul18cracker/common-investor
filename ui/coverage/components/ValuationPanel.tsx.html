@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">99.77% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>423/423</span>
+                <span class='fraction'>437/438</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">97.61% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>40/40</span>
+                <span class='fraction'>41/42</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">99.77% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>423/423</span>
+                <span class='fraction'>437/438</span>
             </div>
         
             
@@ -485,7 +485,35 @@
 <a name='L420'></a><a href='#L420'>420</a>
 <a name='L421'></a><a href='#L421'>421</a>
 <a name='L422'></a><a href='#L422'>422</a>
-<a name='L423'></a><a href='#L423'>423</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L423'></a><a href='#L423'>423</a>
+<a name='L424'></a><a href='#L424'>424</a>
+<a name='L425'></a><a href='#L425'>425</a>
+<a name='L426'></a><a href='#L426'>426</a>
+<a name='L427'></a><a href='#L427'>427</a>
+<a name='L428'></a><a href='#L428'>428</a>
+<a name='L429'></a><a href='#L429'>429</a>
+<a name='L430'></a><a href='#L430'>430</a>
+<a name='L431'></a><a href='#L431'>431</a>
+<a name='L432'></a><a href='#L432'>432</a>
+<a name='L433'></a><a href='#L433'>433</a>
+<a name='L434'></a><a href='#L434'>434</a>
+<a name='L435'></a><a href='#L435'>435</a>
+<a name='L436'></a><a href='#L436'>436</a>
+<a name='L437'></a><a href='#L437'>437</a>
+<a name='L438'></a><a href='#L438'>438</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -645,7 +673,9 @@
 <span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-yes">10x</span>
@@ -910,6 +940,19 @@
 <span class="cline-any cline-yes">45x</span></td><td class="text"><pre class="prettyprint lang-js">'use client';
 import { useState } from 'react';
 &nbsp;
+interface ValuationResult {
+  sticker: number | null;
+  mos_price: number | null;
+  ten_cap_price: number | null;
+  payback_years: number | null;
+  eps0: number | null;
+  g: number | null;
+  future_eps: number | null;
+  pe_used: number | null;
+  future_price: number | null;
+  owner_earnings: number | null;
+}
+&nbsp;
 // Info tooltip component
 function InfoTip({ text }: { text: string }) {
   return (
@@ -1049,11 +1092,11 @@ export default function ValuationPanel({ api, ticker }: { api: string; ticker: s
   const [growth, setGrowth] = useState&lt;number&gt;(10);
   const [peCap, setPeCap] = useState&lt;number&gt;(20);
   const [discount, setDiscount] = useState&lt;number&gt;(15);
-  const [valuation, setValuation] = useState&lt;any&gt;(null);
+  const [valuation, setValuation] = useState&lt;ValuationResult | null&gt;(null);
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 &nbsp;
-  async function runValuation() {
+  const runValuation = async (): Promise&lt;void&gt; =&gt; {
     setLoading(true);
     try {
       const res = await fetch(`${api}/api/v1/company/${ticker}/valuation`, {
@@ -1067,10 +1110,12 @@ export default function ValuationPanel({ api, ticker }: { api: string; ticker: s
         })
       });
       setValuation(await res.json());
+<span class="branch-0 cbranch-no" title="branch not covered" >    } catch (e: unknown) {</span>
+<span class="cstat-no" title="statement not covered" >      console.error('Valuation calculation failed:', e instanceof Error ? e.message : String(e));</span>
     } finally {
       setLoading(false);
     }
-  }
+  };
 &nbsp;
   const exportUrl = `${api}/api/v1/company/${ticker}/export/valuation.json?mos_pct=${mosPct / 100}`;
 &nbsp;
@@ -1336,7 +1381,7 @@ export default function ValuationPanel({ api, ticker }: { api: string; ticker: s
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-07T22:28:51.939Z
+                at 2026-04-09T19:45:16.134Z
             </div>
         <script src="../prettify.js"></script>
         <script>

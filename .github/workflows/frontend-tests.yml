@@ -127,10 +127,7 @@ jobs:
 
     - name: Audit npm dependencies
       working-directory: ui
-      # TODO: Tighten to --audit-level=high after upgrading Next.js to 15.5.15+
-      # Current Next.js 14.2.35 has DoS-only high CVEs (not RCE/data exfil)
-      # Tracked: esbuild/vitest chain (dev-only, moderate) + Next.js DoS CVEs (high)
-      run: npm audit --audit-level=critical
+      run: npm audit --audit-level=high
 
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0
