@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">99.45% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>170/170</span>
+                <span class='fraction'>181/182</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">95.65% </span>
+                <span class="strong">88.46% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>22/23</span>
+                <span class='fraction'>23/26</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">99.45% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>170/170</span>
+                <span class='fraction'>181/182</span>
             </div>
         
             
@@ -232,7 +232,28 @@
 <a name='L167'></a><a href='#L167'>167</a>
 <a name='L168'></a><a href='#L168'>168</a>
 <a name='L169'></a><a href='#L169'>169</a>
-<a name='L170'></a><a href='#L170'>170</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L170'></a><a href='#L170'>170</a>
+<a name='L171'></a><a href='#L171'>171</a>
+<a name='L172'></a><a href='#L172'>172</a>
+<a name='L173'></a><a href='#L173'>173</a>
+<a name='L174'></a><a href='#L174'>174</a>
+<a name='L175'></a><a href='#L175'>175</a>
+<a name='L176'></a><a href='#L176'>176</a>
+<a name='L177'></a><a href='#L177'>177</a>
+<a name='L178'></a><a href='#L178'>178</a>
+<a name='L179'></a><a href='#L179'>179</a>
+<a name='L180'></a><a href='#L180'>180</a>
+<a name='L181'></a><a href='#L181'>181</a>
+<a name='L182'></a><a href='#L182'>182</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -265,7 +286,9 @@
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">2x</span>
@@ -391,6 +414,7 @@
 <span class="cline-any cline-yes">23x</span>
 <span class="cline-any cline-yes">23x</span>
 <span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-yes">39x</span>
 <span class="cline-any cline-yes">39x</span>
 <span class="cline-any cline-yes">39x</span>
 <span class="cline-any cline-yes">39x</span>
@@ -404,42 +428,53 @@
 <span class="cline-any cline-yes">39x</span></td><td class="text"><pre class="prettyprint lang-js">'use client';
 import { useEffect, useState } from 'react';
 import BigFivePanel from '../../../components/BigFivePanel';
+import IncomeStatementPanel from '../../../components/IncomeStatementPanel';
 import CompanyDashboard from '../../../components/CompanyDashboard';
 import ValuationPanel from '../../../components/ValuationPanel';
 import FourMsPanel from '../../../components/FourMsPanel';
 import AlertsPanel from '../../../components/AlertsPanel';
 &nbsp;
-export default function Company({ params }: { params: { ticker: string } }) {
-  const [summary, setSummary] = useState&lt;any&gt;(null);
+interface CompanySummary {
+  [key: string]: unknown;
+}
+&nbsp;
+interface CompanyPageParams {
+  params: { ticker: string };
+}
+&nbsp;
+export default function Company({ params }: CompanyPageParams) {
+  const [summary, setSummary] = useState&lt;CompanySummary | null&gt;(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState&lt;string | undefined&gt;();
   const [ingesting, setIngesting] = useState(false);
   const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 &nbsp;
-  async function loadAll() {
+  const loadAll = async (): Promise&lt;void&gt; =&gt; {
     setLoading(true);
     try {
       const s = await fetch(`${api}/api/v1/company/${params.ticker}`);
       setSummary(s.status === 404 ? null : await s.json());
       setErr(undefined);
-    } catch (e: any) {
-      setErr(String(e));
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.<span class="branch-0 cbranch-no" title="branch not covered" >message : String(e))</span>;
     } finally {
       setLoading(false);
     }
-  }
+  };
 &nbsp;
-  async function handleIngest() {
+  const handleIngest = async (): Promise&lt;void&gt; =&gt; {
     setIngesting(true);
     try {
       await fetch(`${api}/api/v1/company/${params.ticker}/ingest`, { method: 'POST' });
       alert('Ingest queued. Data will be available in 30-60 seconds. Click Reload to refresh.');
+<span class="branch-0 cbranch-no" title="branch not covered" >    } catch (e: unknown) {</span>
+<span class="cstat-no" title="statement not covered" >      console.error('Ingest failed:', e instanceof Error ? e.message : String(e));</span>
     } finally {
       setIngesting(false);
     }
-  }
+  };
 &nbsp;
-  useEffect(() =&gt; { loadAll(); }, [params.ticker]);
+  useEffect(() =&gt; { loadAll(); }, [params.ticker, api]);
 &nbsp;
   const metricsCSV = `${api}/api/v1/company/${params.ticker}/export/metrics.csv`;
 &nbsp;
@@ -462,7 +497,7 @@ export default function Company({ params }: { params: { ticker: string } }) {
           &lt;/h1&gt;
           {summary &amp;&amp; (
             &lt;p style={{ margin: '4px 0 0', color: '#6b7280', fontSize: 16 }}&gt;
-              {summary.<span class="branch-0 cbranch-no" title="branch not covered" >name || 'Company Analysis'}</span>
+              {String(summary.name<span class="branch-0 cbranch-no" title="branch not covered" >) || 'Company Analysis'}</span>
             &lt;/p&gt;
           )}
           &lt;p style={{ margin: '8px 0 0', color: '#9ca3af', fontSize: 13 }}&gt;
@@ -564,6 +599,7 @@ export default function Company({ params }: { params: { ticker: string } }) {
 &nbsp;
       {/* Main Analysis Sections */}
       &lt;BigFivePanel api={api} ticker={params.ticker} /&gt;
+      &lt;IncomeStatementPanel api={api} ticker={params.ticker} /&gt;
       &lt;FourMsPanel api={api} ticker={params.ticker} /&gt;
       &lt;ValuationPanel api={api} ticker={params.ticker} /&gt;
       &lt;CompanyDashboard api={api} ticker={params.ticker} /&gt;
@@ -577,7 +613,7 @@ export default function Company({ params }: { params: { ticker: string } }) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-07T22:28:51.939Z
+                at 2026-04-09T19:45:16.134Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

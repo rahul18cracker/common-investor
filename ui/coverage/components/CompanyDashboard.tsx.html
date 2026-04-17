@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>269/269</span>
+                <span class='fraction'>296/296</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">93.87% </span>
+                <span class="strong">92% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>46/49</span>
+                <span class='fraction'>46/50</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>269/269</span>
+                <span class='fraction'>296/296</span>
             </div>
         
             
@@ -331,7 +331,61 @@
 <a name='L266'></a><a href='#L266'>266</a>
 <a name='L267'></a><a href='#L267'>267</a>
 <a name='L268'></a><a href='#L268'>268</a>
-<a name='L269'></a><a href='#L269'>269</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L269'></a><a href='#L269'>269</a>
+<a name='L270'></a><a href='#L270'>270</a>
+<a name='L271'></a><a href='#L271'>271</a>
+<a name='L272'></a><a href='#L272'>272</a>
+<a name='L273'></a><a href='#L273'>273</a>
+<a name='L274'></a><a href='#L274'>274</a>
+<a name='L275'></a><a href='#L275'>275</a>
+<a name='L276'></a><a href='#L276'>276</a>
+<a name='L277'></a><a href='#L277'>277</a>
+<a name='L278'></a><a href='#L278'>278</a>
+<a name='L279'></a><a href='#L279'>279</a>
+<a name='L280'></a><a href='#L280'>280</a>
+<a name='L281'></a><a href='#L281'>281</a>
+<a name='L282'></a><a href='#L282'>282</a>
+<a name='L283'></a><a href='#L283'>283</a>
+<a name='L284'></a><a href='#L284'>284</a>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a>
+<a name='L291'></a><a href='#L291'>291</a>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a>
+<a name='L295'></a><a href='#L295'>295</a>
+<a name='L296'></a><a href='#L296'>296</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -603,6 +657,33 @@
 import { useEffect, useState } from 'react';
 import TimeseriesChart from './TimeseriesChart';
 &nbsp;
+interface TimeseriesData {
+  is?: Array&lt;{
+    fy: number;
+    revenue: number | null;
+    eps: number | null;
+  }&gt;;
+  roic?: Array&lt;{
+    fy: number;
+    roic: number | null;
+  }&gt;;
+  coverage?: Array&lt;{
+    fy: number;
+    coverage: number | null;
+  }&gt;;
+}
+&nbsp;
+interface ROICDataPoint extends Record&lt;string, number | string | null&gt; {
+  fy: number;
+  roic: number | null;
+  roicPct: string | null;
+}
+&nbsp;
+interface CoverageDataPoint extends Record&lt;string, number | string | null&gt; {
+  fy: number;
+  coverage: number | null;
+}
+&nbsp;
 // Info tooltip component
 function InfoTip({ text }: { text: string }) {
   return (
@@ -673,7 +754,7 @@ function ChartCard({
 }
 &nbsp;
 export default function CompanyDashboard({ api, ticker }: { api: string; ticker: string }) {
-  const [timeseries, setTimeseries] = useState&lt;any | null&gt;(null);
+  const [timeseries, setTimeseries] = useState&lt;TimeseriesData | null&gt;(null);
   const [err, setErr] = useState&lt;string | undefined&gt;();
   const [loading, setLoading] = useState(true);
 &nbsp;
@@ -684,8 +765,8 @@ export default function CompanyDashboard({ api, ticker }: { api: string; ticker:
         const res = await fetch(`${api}/api/v1/company/${ticker}/timeseries`);
         setTimeseries(await res.json());
         setErr(undefined);
-      } catch (e: any) {
-        setErr(String(e));
+      } catch (e: unknown) {
+        setErr(e instanceof Error ? e.<span class="branch-0 cbranch-no" title="branch not covered" >message : String(e))</span>;
       } finally {
         setLoading(false);
       }
@@ -693,22 +774,22 @@ export default function CompanyDashboard({ api, ticker }: { api: string; ticker:
   }, [api, ticker]);
 &nbsp;
   const isData = timeseries?.is || [];
-  const roicData = (timeseries?.roic || []).map((x: any) =&gt; ({ 
-    fy: x.fy, 
+  const roicData: ROICDataPoint[] = (timeseries?.roic || []).map((x) =&gt; ({
+    fy: x.fy,
     roic: x.roic,
     roicPct: x.roic ? (x.roic * 100).toFixed(1) : null
   }));
-  const covData = (timeseries?.coverage || []).map((x: any) =&gt; ({ 
-    fy: x.fy, 
-    coverage: x.coverage 
+  const covData: CoverageDataPoint[] = (timeseries?.coverage || []).map((x) =&gt; ({
+    fy: x.fy,
+    coverage: x.coverage
   }));
 &nbsp;
   // Calculate some insights
   const latestROIC = roicData.length &gt; 0 ? roicData[roicData.length - 1]?.roic : null;
-  const avgROIC = roicData.length &gt; 0 
-    ? roicData.reduce((sum: number, x: any) =&gt; sum + (x.roic || 0), 0) / roicData.length 
+  const avgROIC = roicData.length &gt; 0
+    ? roicData.reduce((sum: number, x) =&gt; sum + (x.roic || 0), 0) / roicData.length
     : null;
-  const roicTrend = roicData.length &gt;= 2 
+  const roicTrend = roicData.length &gt;= 2
     ? (roicData[roicData.length - 1]?.<span class="branch-0 cbranch-no" title="branch not covered" >roic || 0) &gt; (r</span>oicData[0]?.roic || 0) ? 'improving' : 'declining'
     : 'unknown';
 &nbsp;
@@ -874,7 +955,7 @@ export default function CompanyDashboard({ api, ticker }: { api: string; ticker:
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-07T22:28:51.939Z
+                at 2026-04-09T19:45:16.134Z
             </div>
         <script src="../prettify.js"></script>
         <script>

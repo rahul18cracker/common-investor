@@ -19,7 +19,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html', 'json'],
       include: ['components/**/*.tsx', 'app/**/*.tsx'],
-      exclude: ['node_modules', 'tests'],
+      exclude: ['node_modules', 'tests', 'app/**/page.tsx'],
     },
   },
 })

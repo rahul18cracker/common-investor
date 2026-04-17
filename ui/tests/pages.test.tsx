@@ -37,7 +37,7 @@ vi.mock('../components/AlertsPanel', () => ({
 // Import components after mocking
 import Home from '../app/page'
 import RootLayout from '../app/layout'
-import Company from '../app/company/[ticker]/page'
+import CompanyPage from '../app/company/[ticker]/CompanyPage'
 
 const API_BASE = 'http://localhost:8080'
 
@@ -104,7 +104,7 @@ describe('Company Page', () => {
       json: () => Promise.resolve({ name: 'Apple Inc.' })
     })
 
-    render(<Company params={{ ticker: 'AAPL' }} />)
+    render(<CompanyPage ticker="AAPL" />)
     
     await waitFor(() => {
       expect(screen.getByText('AAPL')).toBeInTheDocument()
@@ -117,7 +117,7 @@ describe('Company Page', () => {
       json: () => Promise.resolve({ name: 'Microsoft Corporation' })
     })
 
-    render(<Company params={{ ticker: 'MSFT' }} />)
+    render(<CompanyPage ticker="MSFT" />)
     
     await waitFor(() => {
       expect(screen.getByText('Microsoft Corporation')).toBeInTheDocument()
@@ -132,7 +132,7 @@ describe('Company Page', () => {
       }), 100))
     )
 
-    render(<Company params={{ ticker: 'AAPL' }} />)
+    render(<CompanyPage ticker="AAPL" />)
     
     expect(screen.getByText('Loading company data...')).toBeInTheDocument()
   })
@@ -143,7 +143,7 @@ describe('Company Page', () => {
       json: () => Promise.resolve(null)
     })
 
-    render(<Company params={{ ticker: 'INVALID' }} />)
+    render(<CompanyPage ticker="INVALID" />)
     
     await waitFor(() => {
       expect(screen.getByText(/No data available for INVALID/)).toBeInTheDocument()
@@ -153,7 +153,7 @@ describe('Company Page', () => {
   it('handles fetch error', async () => {
     global.fetch = vi.fn().mockRejectedValueOnce(new Error('Network error'))
 
-    render(<Company params={{ ticker: 'AAPL' }} />)
+    render(<CompanyPage ticker="AAPL" />)
     
     await waitFor(() => {
       expect(screen.getByText(/Error:/)).toBeInTheDocument()
@@ -166,7 +166,7 @@ describe('Company Page', () => {
       json: () => Promise.resolve({ name: 'Apple Inc.' })
     })
 
-    render(<Company params={{ ticker: 'AAPL' }} />)
+    render(<CompanyPage ticker="AAPL" />)
     
     await waitFor(() => {
       expect(screen.getByText('Ingest SEC Data')).toBeInTheDocument()
@@ -186,7 +186,7 @@ describe('Company Page', () => {
         json: () => Promise.resolve({ status: 'queued' })
       })
 
-    render(<Company params={{ ticker: 'AAPL' }} />)
+    render(<CompanyPage ticker="AAPL" />)
     
     await waitFor(() => {
       expect(screen.getByText('Ingest SEC Data')).toBeInTheDocument()
@@ -215,7 +215,7 @@ describe('Company Page', () => {
         }), 100))
       )
 
-    render(<Company params={{ ticker: 'AAPL' }} />)
+    render(<CompanyPage ticker="AAPL" />)
     
     await waitFor(() => {
       expect(screen.getByText('Ingest SEC Data')).toBeInTheDocument()
@@ -232,7 +232,7 @@ describe('Company Page', () => {
       json: () => Promise.resolve({ name: 'Apple Inc.' })
     })
 
-    render(<Company params={{ ticker: 'AAPL' }} />)
+    render(<CompanyPage ticker="AAPL" />)
     
     await waitFor(() => {
       expect(screen.getByText('Reload')).toBeInTheDocument()
@@ -251,7 +251,7 @@ describe('Company Page', () => {
       json: () => Promise.resolve({ name: 'Apple Inc.' })
     })
 
-    render(<Company params={{ ticker: 'AAPL' }} />)
+    render(<CompanyPage ticker="AAPL" />)
     
     await waitFor(() => {
       expect(screen.getByTestId('big-five-panel')).toBeInTheDocument()
@@ -268,7 +268,7 @@ describe('Company Page', () => {
       json: () => Promise.resolve({ name: 'Apple Inc.' })
     })
 
-    render(<Company params={{ ticker: 'GOOGL' }} />)
+    render(<CompanyPage ticker="GOOGL" />)
     
     await waitFor(() => {
       expect(screen.getByText('BigFivePanel: GOOGL')).toBeInTheDocument()
@@ -285,7 +285,7 @@ describe('Company Page', () => {
       json: () => Promise.resolve({ name: 'Apple Inc.' })
     })
 
-    render(<Company params={{ ticker: 'AAPL' }} />)
+    render(<CompanyPage ticker="AAPL" />)
     
     await waitFor(() => {
       const exportLink = screen.getByText('Export CSV')
@@ -301,7 +301,7 @@ describe('Company Page', () => {
       json: () => Promise.resolve(mockSummary)
     })
 
-    render(<Company params={{ ticker: 'AAPL' }} />)
+    render(<CompanyPage ticker="AAPL" />)
     
     await waitFor(() => {
       expect(screen.getByText('View Raw Company Data')).toBeInTheDocument()
@@ -314,7 +314,7 @@ describe('Company Page', () => {
       json: () => Promise.resolve({ name: 'Apple Inc.' })
     })
 
-    render(<Company params={{ ticker: 'AAPL' }} />)
+    render(<CompanyPage ticker="AAPL" />)
     
     await waitFor(() => {
       expect(screen.getByText(/Rule #1 Investing Analysis/)).toBeInTheDocument()

@@ -1,0 +1,59 @@
+name: Nightly Security Scans
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # 6 AM UTC daily
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  contents: read
+
+jobs:
+  scan-images:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+    - name: Build backend image
+      run: docker build -t ci-backend:scan ./backend
+
+    - name: Scan backend image
+      uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0
+      with:
+        image-ref: "ci-backend:scan"
+        format: "table"
+        exit-code: "1"
+        ignore-unfixed: true
+        severity: "CRITICAL,HIGH"
+
+    - name: Build frontend image
+      run: docker build -t ci-frontend:scan ./ui
+
+    - name: Scan frontend image
+      uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0
+      with:
+        image-ref: "ci-frontend:scan"
+        format: "table"
+        exit-code: "1"
+        ignore-unfixed: true
+        vuln-type: "os"
+        severity: "CRITICAL,HIGH"
+
+    - name: Generate backend SBOM
+      uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0
+      with:
+        image-ref: "ci-backend:scan"
+        format: "cyclonedx"
+        output: "sbom-backend.json"
+
+    - name: Upload SBOM
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+      with:
+        name: sbom
+        path: sbom-backend.json
+        retention-days: 90
