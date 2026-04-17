@@ -43,14 +43,13 @@ jobs:
 
     - name: Run unit tests with coverage
       working-directory: ui
-      run: |
-        ./node_modules/.bin/vitest --run --coverage
+      run: npx --no-install vitest --run --coverage
 
     - name: Check coverage threshold
       working-directory: ui
       run: |
         # Extract line coverage from the coverage report
-        COVERAGE=$(./node_modules/.bin/vitest --run --coverage 2>&1 | grep "All files" | awk '{print $4}' | tr -d '%')
+        COVERAGE=$(npx --no-install vitest --run --coverage 2>&1 | grep "All files" | awk '{print $4}' | tr -d '%')
         echo "Current line coverage: ${COVERAGE}%"
 
         # Minimum coverage threshold (96%)
