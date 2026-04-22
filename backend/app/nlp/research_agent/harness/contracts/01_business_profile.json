@@ -1,0 +1,144 @@
+{
+  "sprint": "01_business_profile",
+  "version": "1.0",
+  "model_tier": "haiku",
+  "max_retries": 2,
+  "timeout_seconds": 120,
+  "eval_timeout_seconds": 30,
+  "dependencies": [],
+
+  "output_schema": {
+    "required_fields": [
+      "ticker", "name", "reporting_currency",
+      "products_services", "customer_segments", "geographies",
+      "pricing_model", "revenue_drivers", "recurrence_mechanisms",
+      "distribution_channels", "narrative"
+    ],
+    "field_types": {
+      "ticker": "string",
+      "name": "string",
+      "reporting_currency": "string",
+      "products_services": "array[string]",
+      "customer_segments": "array[string]",
+      "geographies": "array[string]",
+      "pricing_model": "array[string]",
+      "revenue_drivers": "array[string]",
+      "recurrence_mechanisms": "array[string]",
+      "distribution_channels": "array[string]",
+      "narrative": "string"
+    },
+    "no_nulls": true,
+    "no_empty_strings_in_arrays": true,
+    "array_minimums": {
+      "products_services": 2,
+      "customer_segments": 2,
+      "geographies": 1,
+      "pricing_model": 1,
+      "revenue_drivers": 2,
+      "recurrence_mechanisms": 1,
+      "distribution_channels": 1
+    },
+    "enums": {
+      "pricing_model": ["subscription", "usage", "one_time", "hybrid", "fees", "spread"],
+      "recurrence_mechanisms": ["contracts", "replacement_cycle", "ecosystem", "unknown"]
+    },
+    "string_minimums": {
+      "narrative": 400
+    }
+  },
+
+  "cross_references": [
+    {
+      "check": "ticker_match",
+      "rule": "output.ticker must match agent_bundle.company.ticker (case-insensitive)",
+      "source": "agent_bundle.company.ticker",
+      "target": "output.ticker",
+      "match": "case_insensitive_exact"
+    },
+    {
+      "check": "name_match",
+      "rule": "output.name must be a recognizable form of the company name",
+      "source": "agent_bundle.company.name",
+      "target": "output.name",
+      "match": "substring_either_direction"
+    }
+  ],
+
+  "grounding_checks": [
+    {
+      "id": "growth_claim_not_contradicted",
+      "description": "If narrative asserts growth, actual revenue CAGR must not be negative",
+      "claim_signals": ["growing", "growth", "expanding", "accelerating"],
+      "claim_source": "output.narrative",
+      "verify_against": "agent_bundle.metrics.growths_extended.rev_cagr_5y",
+      "contradiction_rule": "claim_present AND metric < 0",
+      "severity": "hard"
+    },
+    {
+      "id": "decline_claim_not_contradicted",
+      "description": "If narrative asserts decline, actual revenue CAGR must not be strongly positive",
+      "claim_signals": ["declining", "shrinking", "contracting", "falling"],
+      "claim_source": "output.narrative",
+      "verify_against": "agent_bundle.metrics.growths_extended.rev_cagr_5y",
+      "contradiction_rule": "claim_present AND metric > 5",
+      "severity": "hard"
+    },
+    {
+      "id": "revenue_drivers_not_fabricated",
+      "description": "Revenue drivers should not be listed if agent-bundle has no revenue data at all",
+      "claim_source": "output.revenue_drivers",
+      "verify_against": "agent_bundle.timeseries.is",
+      "contradiction_rule": "output.revenue_drivers.length > 0 AND no revenue entries in timeseries",
+      "severity": "hard"
+    },
+    {
+      "id": "unverifiable_numeric_claims",
+      "description": "Flag numeric claims in narrative that cannot be traced to agent-bundle or Item 1 text",
+      "claim_source": "output.narrative",
+      "verify_against": ["agent_bundle", "item1_text"],
+      "contradiction_rule": "numeric_claim_present AND not_found_in_sources",
+      "severity": "soft"
+    }
+  ],
+
+  "llm_eval_criteria": {
+    "evidence_quality": {
+      "weight": 5,
+      "prompt": "Are revenue drivers and business claims backed by specific figures, segment names, or filing references — not vague assertions like 'the company sells products'?",
+      "score_5": "Every driver tied to a specific segment, figure, or filing fact",
+      "score_3": "Most claims specific, 1-2 vague",
+      "score_1": "Mostly generic, reads like a Wikipedia stub"
+    },
+    "completeness": {
+      "weight": 5,
+      "prompt": "Does the output cover all major business lines, customer segments, geographies, pricing, and recurrence? Are obvious things missing for this company/industry?",
+      "score_5": "All products, segments, geos, pricing, recurrence covered — nothing obvious missing",
+      "score_3": "Most covered, 1-2 notable gaps",
+      "score_1": "Major business lines or segments omitted"
+    },
+    "consistency": {
+      "weight": 5,
+      "prompt": "Do pricing_model, recurrence_mechanisms, revenue_drivers, and narrative all tell a coherent story? Any contradictions between structured fields and the narrative?",
+      "score_5": "All fields align — narrative explains what structured fields encode",
+      "score_3": "Minor misalignment (e.g., narrative mentions subscription but pricing_model says one_time)",
+      "score_1": "Clear contradictions between fields"
+    },
+    "red_flags": {
+      "weight": 5,
+      "prompt": "Is the output free of marketing language, hallucinated products/segments, and vague hand-waving? Does it read like analyst research, not a press release?",
+      "score_5": "Clean, factual, analyst tone throughout",
+      "score_3": "1 minor issue (slightly promotional phrase or unverifiable detail)",
+      "score_1": "Marketing copy, made-up specifics, or empty filler"
+    }
+  },
+
+  "pass_threshold": {
+    "deterministic_checks": "all_pass",
+    "grounding_hard": "zero_contradictions",
+    "grounding_soft": "flag_only",
+    "llm_score_minimum": 12,
+    "llm_score_maximum": 20
+  },
+
+  "notes": "Sprint 1 is extraction-heavy. Grounding surface is limited since business_profile is mostly qualitative. Later sprints (moat, risks, thesis) will have denser grounding checks against quantitative data. The 12/20 LLM threshold is provisional — will be calibrated during Phase 1A-review with human scoring."
+}
