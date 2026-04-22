@@ -11,6 +11,6 @@ httpx
 python-dotenv
 loguru
 beautifulsoup4
-lxml
+lxml>=6.1.0
 yfinance
 pandas
