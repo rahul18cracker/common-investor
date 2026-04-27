@@ -40,7 +40,7 @@
     },
     "enums": {
       "pricing_model": ["subscription", "usage", "one_time", "hybrid", "fees", "spread"],
-      "recurrence_mechanisms": ["contracts", "replacement_cycle", "ecosystem", "unknown"]
+      "recurrence_mechanisms": ["contracts", "replacement_cycle", "ecosystem", "subscription", "unknown"]
     },
     "string_minimums": {
       "narrative": 400

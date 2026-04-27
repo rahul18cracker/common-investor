@@ -74,6 +74,16 @@ def run_sprint(
 
         if not builder_result.success or builder_result.output is None:
             eval_failures = [f"Builder failed to produce valid JSON (attempt {attempt})"]
+            state.write_builder_trace(sprint_name, {
+                "model": builder_result.model,
+                "input_tokens": builder_result.input_tokens,
+                "output_tokens": builder_result.output_tokens,
+                "cached_tokens": builder_result.cached_tokens,
+                "duration_seconds": builder_result.duration_seconds,
+                "attempt": attempt,
+                "error": True,
+                "raw_response_preview": builder_result.raw_response[:500],
+            })
             logger.warning(
                 "Sprint %s attempt %d: builder failed", sprint_name, attempt
             )

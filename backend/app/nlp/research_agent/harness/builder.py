@@ -219,12 +219,14 @@ def build(
     duration = time.time() - start
     parsed = parse_builder_response(raw_response)
 
+    usage = getattr(llm_call, "last_usage", {})
+
     return BuilderResult(
         output=parsed,
         raw_response=raw_response,
-        input_tokens=0,
-        output_tokens=0,
-        cached_tokens=0,
+        input_tokens=usage.get("input_tokens", 0),
+        output_tokens=usage.get("output_tokens", 0),
+        cached_tokens=usage.get("cache_read_input_tokens", 0),
         model=model,
         duration_seconds=duration,
         success=parsed is not None,
