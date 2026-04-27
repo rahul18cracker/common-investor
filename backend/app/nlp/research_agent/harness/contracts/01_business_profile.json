@@ -80,7 +80,7 @@
       "claim_signals": ["declining", "shrinking", "contracting", "falling"],
       "claim_source": "output.narrative",
       "verify_against": "agent_bundle.metrics.growths_extended.rev_cagr_5y",
-      "contradiction_rule": "claim_present AND metric > 5",
+      "contradiction_rule": "claim_present AND metric > 0.05",
       "severity": "hard"
     },
     {
