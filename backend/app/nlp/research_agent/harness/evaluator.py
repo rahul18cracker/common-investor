@@ -16,6 +16,7 @@ import json
 import time
 from typing import Any, Callable, Protocol
 
+from app.nlp.research_agent.harness.framework_card import EVALUATOR_FRAMEWORK_ADDENDUM
 from app.nlp.research_agent.harness.grounding import (
     resolve_path,
     run_all_grounding_checks,
@@ -26,7 +27,7 @@ from app.nlp.research_agent.harness.grounding import (
 
 
 class LLMCallable(Protocol):
-    def __call__(self, system_prompt: str, user_prompt: str) -> str: ...
+    def __call__(self, system_prompt: str, user_prompt: str, static_context: str | None = None) -> str: ...
 
 
 # --- Layer 1: Schema validation ---
@@ -164,6 +165,8 @@ def check_cross_references(
 # --- Layer 4: LLM adversarial evaluation ---
 
 EVALUATOR_SYSTEM_PROMPT = (
+    EVALUATOR_FRAMEWORK_ADDENDUM
+    + "\n---\n\n"
     "You are a skeptical investment analyst reviewing a colleague's work. "
     "Your job is to find errors, unsupported claims, and gaps. "
     "Score harshly — a mediocre analysis that passes is worse than a good "

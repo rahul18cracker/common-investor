@@ -13,12 +13,16 @@ import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from app.nlp.research_agent.harness.framework_card import FRAMEWORK_CARD
+
 
 class LLMCallable(Protocol):
-    def __call__(self, system_prompt: str, user_prompt: str) -> str: ...
+    def __call__(self, system_prompt: str, user_prompt: str, static_context: str | None = None) -> str: ...
 
 
 BUILDER_SYSTEM_PROMPT = (
+    FRAMEWORK_CARD
+    + "\n---\n\n"
     "You are an expert financial analyst performing qualitative research "
     "on a public company. You follow Phil Town's Rule #1 investing methodology "
     "and Katsenelson's QVG framework.\n\n"
@@ -89,12 +93,14 @@ SPRINT_PROMPTS: dict[str, str] = {
 
 
 def build_static_prefix(agent_bundle: dict[str, Any], item1_text: str) -> str:
-    """Build the cache-friendly static prefix (identical across sprints)."""
+    """Build XML-wrapped data block for the cached system context."""
     return (
-        "## Quantitative Data (agent-bundle)\n"
-        f"```json\n{json.dumps(agent_bundle, indent=2, default=str)}\n```\n\n"
-        "## SEC Filing — Item 1 Business Description\n"
-        f"{item1_text}\n\n"
+        "<financial_data>\n"
+        + json.dumps(agent_bundle, indent=2, default=str)
+        + "\n</financial_data>\n\n"
+        "<item1_text>\n"
+        + item1_text
+        + "\n</item1_text>"
     )
 
 
@@ -202,13 +208,12 @@ def build(
 
     static = build_static_prefix(agent_bundle, item1_text)
     dynamic = build_dynamic_suffix(contract, prior_outputs, eval_failures, attempt)
-    user_prompt = static + dynamic
 
     model = contract.get("model_tier", "haiku")
 
     start = time.time()
     try:
-        raw_response = llm_call(BUILDER_SYSTEM_PROMPT, user_prompt)
+        raw_response = llm_call(BUILDER_SYSTEM_PROMPT, dynamic, static_context=static)
     except Exception as e:
         return BuilderResult(
             output=None, raw_response=str(e), input_tokens=0,

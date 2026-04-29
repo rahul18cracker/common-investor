@@ -34,15 +34,22 @@ class AnthropicLLMClient:
         )
         self.last_usage: dict[str, int] = {}
 
-    def __call__(self, system_prompt: str, user_prompt: str) -> str:
+    def __call__(self, system_prompt: str, user_prompt: str, static_context: str | None = None) -> str:
+        system_blocks = []
+        if static_context:
+            system_blocks.append({
+                "type": "text",
+                "text": static_context,
+                "cache_control": {"type": "ephemeral"},
+            })
+        system_blocks.append({
+            "type": "text",
+            "text": system_prompt,
+        })
         response = self.client.messages.create(
             model=self.model_id,
             max_tokens=self.max_tokens,
-            system=[{
-                "type": "text",
-                "text": system_prompt,
-                "cache_control": {"type": "ephemeral"},
-            }],
+            system=system_blocks,
             messages=[{"role": "user", "content": user_prompt}],
         )
 
@@ -58,3 +65,12 @@ class AnthropicLLMClient:
         }
 
         return response.content[0].text
+
+    def with_model(self, model: str) -> "AnthropicLLMClient":
+        """Return a new client instance with a different model tier."""
+        new_client = AnthropicLLMClient(
+            model=model,
+            api_key=self.client.api_key,
+            max_tokens=self.max_tokens,
+        )
+        return new_client
