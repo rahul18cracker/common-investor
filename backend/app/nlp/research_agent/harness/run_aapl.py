@@ -3,13 +3,19 @@
 
 Usage:
     cd backend
-    python -m app.nlp.research_agent.harness.run_aapl
+    python -m app.nlp.research_agent.harness.run_aapl [--ticker AAPL] [--snapshot] [--resume SPRINT] [--cascade] [--base-url URL]
+
+Default mode (no --snapshot): fetches live data from the API (requires running backend).
+--snapshot mode: uses hardcoded AAPL data snapshot.
+--resume sprint_name: re-runs a specific sprint (requires existing state).
+--cascade: when used with --resume, also re-runs all downstream sprints.
 
 Requires ANTHROPIC_API_KEY in the root .env or environment.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -22,7 +28,7 @@ project_root = Path(__file__).resolve().parents[5]
 load_dotenv(project_root / ".env")
 
 from app.nlp.research_agent.harness.llm_client import AnthropicLLMClient
-from app.nlp.research_agent.harness.orchestrator import run_all_sprints
+from app.nlp.research_agent.harness.orchestrator import run_all_sprints, resume_from_sprint
 
 # --- Sample data (cached agent-bundle for AAPL) ---
 # In production this comes from the /agent-bundle API endpoint.
@@ -120,14 +126,46 @@ Saturday of September.
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Run the qualitative agent harness on a ticker."
+    )
+    parser.add_argument(
+        "--ticker",
+        default="AAPL",
+        help="Stock ticker (default: AAPL)",
+    )
+    parser.add_argument(
+        "--snapshot",
+        action="store_true",
+        help="Use hardcoded AAPL snapshot data instead of fetching from API",
+    )
+    parser.add_argument(
+        "--resume",
+        type=str,
+        metavar="SPRINT",
+        help="Resume from a specific sprint (requires existing state on disk)",
+    )
+    parser.add_argument(
+        "--cascade",
+        action="store_true",
+        help="When used with --resume, also re-run all downstream sprints",
+    )
+    parser.add_argument(
+        "--base-url",
+        default="http://localhost:8080/api/v1",
+        help="Base URL for API (default: http://localhost:8080/api/v1)",
+    )
+
+    args = parser.parse_args()
+
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         print("ERROR: ANTHROPIC_API_KEY not set. Add it to the root .env file.")
         sys.exit(1)
 
     print("=" * 60)
-    print("Qualitative Agent Harness — AAPL Integration Test")
-    print("Sprint: 01_business_profile")
+    print("Qualitative Agent Harness")
+    print(f"Ticker: {args.ticker}")
     print("Model: Haiku 4.5")
     print("=" * 60)
 
@@ -135,18 +173,68 @@ def main():
     evaluator_llm = AnthropicLLMClient(model="haiku", api_key=api_key)
 
     state_root = Path(__file__).parent / "state"
-    print(f"\nState directory: {state_root / 'AAPL'}")
-    print("Running...\n")
+    print(f"\nState directory: {state_root / args.ticker}")
 
-    manifest = run_all_sprints(
-        ticker="AAPL",
-        agent_bundle=AAPL_AGENT_BUNDLE,
-        item1_text=AAPL_ITEM1_TEXT,
-        builder_llm=builder_llm,
-        evaluator_llm=evaluator_llm,
-        state_root=state_root,
-        sprint_names=["01_business_profile"],
-    )
+    # Handle resume mode
+    if args.resume:
+        print(f"Resume mode: sprint {args.resume}")
+        if args.cascade:
+            print("Cascade enabled: will re-run all downstream sprints")
+        print("Running...\n")
+
+        try:
+            manifest = resume_from_sprint(
+                ticker=args.ticker,
+                sprint_name=args.resume,
+                builder_llm=builder_llm,
+                evaluator_llm=evaluator_llm,
+                state_root=state_root,
+                cascade=args.cascade,
+            )
+        except ValueError as e:
+            print(f"\nERROR: {e}")
+            sys.exit(1)
+
+        print("\n" + "=" * 60)
+        print("RESULT")
+        print("=" * 60)
+        print(json.dumps(manifest, indent=2, default=str))
+        return
+
+    # Handle snapshot mode
+    if args.snapshot:
+        print("WARNING: Using hardcoded snapshot data (--snapshot mode)")
+        print("Running...\n")
+
+        manifest = run_all_sprints(
+            ticker=args.ticker,
+            agent_bundle=AAPL_AGENT_BUNDLE,
+            item1_text=AAPL_ITEM1_TEXT,
+            builder_llm=builder_llm,
+            evaluator_llm=evaluator_llm,
+            state_root=state_root,
+            sprint_names=["01_business_profile"],
+        )
+    else:
+        # Default: fetch from live API
+        print("Fetching live data from API...")
+        print("Running...\n")
+
+        manifest = run_all_sprints(
+            ticker=args.ticker,
+            builder_llm=builder_llm,
+            evaluator_llm=evaluator_llm,
+            state_root=state_root,
+            base_url=args.base_url,
+        )
+
+    # Check for fetch failures
+    if manifest.get("status") == "fetch_failed":
+        print("\nERROR: Could not fetch data from API")
+        errors = manifest.get("errors", [])
+        for error in errors:
+            print(f"  - {error}")
+        sys.exit(1)
 
     print("\n" + "=" * 60)
     print("RESULT")
@@ -165,14 +253,14 @@ def main():
     print(f"Cost: ${cost:.4f}")
 
     # Print the actual builder output
-    output_path = state_root / "AAPL" / "sprints" / "01_business_profile" / "builder_output.json"
+    output_path = state_root / args.ticker / "sprints" / "01_business_profile" / "builder_output.json"
     if output_path.exists():
         print("\n" + "=" * 60)
         print("BUILDER OUTPUT (business_profile.json)")
         print("=" * 60)
         print(output_path.read_text())
 
-    eval_path = state_root / "AAPL" / "sprints" / "01_business_profile" / "eval_result.json"
+    eval_path = state_root / args.ticker / "sprints" / "01_business_profile" / "eval_result.json"
     if eval_path.exists():
         print("\n" + "=" * 60)
         print("EVAL RESULT")
