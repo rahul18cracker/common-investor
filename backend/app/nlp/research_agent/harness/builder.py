@@ -21,8 +21,7 @@ class LLMCallable(Protocol):
 
 
 BUILDER_SYSTEM_PROMPT = (
-    FRAMEWORK_CARD
-    + "\n---\n\n"
+    FRAMEWORK_CARD + "\n---\n\n"
     "You are an expert financial analyst performing qualitative research "
     "on a public company. You follow Phil Town's Rule #1 investing methodology "
     "and Katsenelson's QVG framework.\n\n"
@@ -30,7 +29,7 @@ BUILDER_SYSTEM_PROMPT = (
     "- Base your analysis on the quantitative data and SEC filings provided.\n"
     "- Be concrete and specific. Cite figures, segments, and filing details.\n"
     "- Avoid marketing language, promotional tone, and vague assertions.\n"
-    "- If information is unavailable, use \"unknown\" — never fabricate.\n"
+    '- If information is unavailable, use "unknown" — never fabricate.\n'
     "- Respond with valid JSON only. No markdown wrapping, no explanation "
     "outside the JSON.\n"
 )
@@ -95,12 +94,8 @@ SPRINT_PROMPTS: dict[str, str] = {
 def build_static_prefix(agent_bundle: dict[str, Any], item1_text: str) -> str:
     """Build XML-wrapped data block for the cached system context."""
     return (
-        "<financial_data>\n"
-        + json.dumps(agent_bundle, indent=2, default=str)
-        + "\n</financial_data>\n\n"
-        "<item1_text>\n"
-        + item1_text
-        + "\n</item1_text>"
+        "<financial_data>\n" + json.dumps(agent_bundle, indent=2, default=str) + "\n</financial_data>\n\n"
+        "<item1_text>\n" + item1_text + "\n</item1_text>"
     )
 
 
@@ -141,7 +136,7 @@ def build_dynamic_suffix(
     if str_mins:
         for field, min_len in str_mins.items():
             parts.append(f"- {field}: minimum {min_len} characters\n")
-    parts.append("- No null values. Use \"unknown\" if data is unavailable.\n")
+    parts.append('- No null values. Use "unknown" if data is unavailable.\n')
     parts.append("- No nested objects unless field type specifies it. Use flat strings.\n")
     parts.append("- No empty strings in arrays.\n\n")
 
@@ -182,6 +177,7 @@ def parse_builder_response(raw: str) -> dict[str, Any] | None:
 @dataclass
 class BuilderResult:
     """Result of a builder invocation."""
+
     output: dict[str, Any] | None
     raw_response: str
     input_tokens: int
@@ -208,9 +204,14 @@ def build(
     """
     if llm_call is None:
         return BuilderResult(
-            output=None, raw_response="", input_tokens=0,
-            output_tokens=0, cached_tokens=0, model="none",
-            duration_seconds=0.0, success=False,
+            output=None,
+            raw_response="",
+            input_tokens=0,
+            output_tokens=0,
+            cached_tokens=0,
+            model="none",
+            duration_seconds=0.0,
+            success=False,
         )
 
     static = build_static_prefix(agent_bundle, item1_text)
@@ -223,9 +224,14 @@ def build(
         raw_response = llm_call(BUILDER_SYSTEM_PROMPT, dynamic, static_context=static)
     except Exception as e:
         return BuilderResult(
-            output=None, raw_response=str(e), input_tokens=0,
-            output_tokens=0, cached_tokens=0, model=model,
-            duration_seconds=time.time() - start, success=False,
+            output=None,
+            raw_response=str(e),
+            input_tokens=0,
+            output_tokens=0,
+            cached_tokens=0,
+            model=model,
+            duration_seconds=time.time() - start,
+            success=False,
         )
 
     duration = time.time() - start

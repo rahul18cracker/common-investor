@@ -28,7 +28,7 @@ project_root = Path(__file__).resolve().parents[5]
 load_dotenv(project_root / ".env")
 
 from app.nlp.research_agent.harness.llm_client import AnthropicLLMClient
-from app.nlp.research_agent.harness.orchestrator import run_all_sprints, resume_from_sprint
+from app.nlp.research_agent.harness.orchestrator import resume_from_sprint, run_all_sprints
 
 # --- Sample data (cached agent-bundle for AAPL) ---
 # In production this comes from the /agent-bundle API endpoint.
@@ -126,9 +126,7 @@ Saturday of September.
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Run the qualitative agent harness on a ticker."
-    )
+    parser = argparse.ArgumentParser(description="Run the qualitative agent harness on a ticker.")
     parser.add_argument(
         "--ticker",
         default="AAPL",

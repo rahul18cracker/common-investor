@@ -101,17 +101,11 @@ class DataFetcher:
             result.agent_bundle = self.fetch_agent_bundle(ticker)
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
-                result.errors.append(
-                    f"Company {ticker} not ingested. Run POST /company/{ticker}/ingest first."
-                )
+                result.errors.append(f"Company {ticker} not ingested. Run POST /company/{ticker}/ingest first.")
             else:
-                result.errors.append(
-                    f"HTTP {e.response.status_code} from /company/{ticker}/agent-bundle"
-                )
+                result.errors.append(f"HTTP {e.response.status_code} from /company/{ticker}/agent-bundle")
         except httpx.ConnectError:
-            result.errors.append(
-                f"Backend API not reachable at {self.base_url}. Is Docker running?"
-            )
+            result.errors.append(f"Backend API not reachable at {self.base_url}. Is Docker running?")
         except httpx.TimeoutException:
             result.errors.append(f"API timeout after 30s for {ticker}/agent-bundle")
 
@@ -120,25 +114,15 @@ class DataFetcher:
             result.item1_text = self.fetch_item1_text(ticker)
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
-                result.errors.append(
-                    f"Company {ticker} not ingested. Run POST /company/{ticker}/ingest first."
-                )
+                result.errors.append(f"Company {ticker} not ingested. Run POST /company/{ticker}/ingest first.")
             else:
-                result.errors.append(
-                    f"HTTP {e.response.status_code} from /company/{ticker}/fourm/meaning/refresh"
-                )
+                result.errors.append(f"HTTP {e.response.status_code} from /company/{ticker}/fourm/meaning/refresh")
         except httpx.ConnectError:
-            result.errors.append(
-                f"Backend API not reachable at {self.base_url}. Is Docker running?"
-            )
+            result.errors.append(f"Backend API not reachable at {self.base_url}. Is Docker running?")
         except httpx.TimeoutException:
             result.errors.append(f"API timeout after 30s for {ticker}/fourm/meaning/refresh")
 
         result.fetch_duration_seconds = time.time() - start_time
-        result.success = (
-            result.agent_bundle is not None
-            and result.item1_text is not None
-            and len(result.errors) == 0
-        )
+        result.success = result.agent_bundle is not None and result.item1_text is not None and len(result.errors) == 0
 
         return result

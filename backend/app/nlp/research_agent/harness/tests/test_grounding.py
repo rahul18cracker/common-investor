@@ -12,7 +12,6 @@ from app.nlp.research_agent.harness.grounding import (
     run_grounding_check,
 )
 
-
 # --- resolve_path ---
 
 
@@ -246,9 +245,7 @@ class TestGrowthCheck:
         assert result["passed"]
 
     def test_growth_claim_contradicted(self):
-        bundle = {**SAMPLE_AGENT_BUNDLE, "metrics": {
-            "growths_extended": {"rev_cagr_5y": -0.05}
-        }}
+        bundle = {**SAMPLE_AGENT_BUNDLE, "metrics": {"growths_extended": {"rev_cagr_5y": -0.05}}}
         output = {"narrative": "The company is growing rapidly."}
         result = run_grounding_check(_make_growth_check(), output, bundle)
         assert not result["passed"]
@@ -272,9 +269,7 @@ class TestGrowthCheck:
         assert result["passed"]
 
     def test_zero_cagr_passes(self):
-        bundle = {**SAMPLE_AGENT_BUNDLE, "metrics": {
-            "growths_extended": {"rev_cagr_5y": 0.0}
-        }}
+        bundle = {**SAMPLE_AGENT_BUNDLE, "metrics": {"growths_extended": {"rev_cagr_5y": 0.0}}}
         output = {"narrative": "Revenue has shown modest growth."}
         result = run_grounding_check(_make_growth_check(), output, bundle)
         assert result["passed"]
@@ -282,17 +277,13 @@ class TestGrowthCheck:
 
 class TestDeclineCheck:
     def test_decline_consistent(self):
-        bundle = {**SAMPLE_AGENT_BUNDLE, "metrics": {
-            "growths_extended": {"rev_cagr_5y": -0.03}
-        }}
+        bundle = {**SAMPLE_AGENT_BUNDLE, "metrics": {"growths_extended": {"rev_cagr_5y": -0.03}}}
         output = {"narrative": "Revenue has been declining for several years."}
         result = run_grounding_check(_make_decline_check(), output, bundle)
         assert result["passed"]
 
     def test_decline_contradicted_by_strong_growth(self):
-        bundle = {**SAMPLE_AGENT_BUNDLE, "metrics": {
-            "growths_extended": {"rev_cagr_5y": 0.15}
-        }}
+        bundle = {**SAMPLE_AGENT_BUNDLE, "metrics": {"growths_extended": {"rev_cagr_5y": 0.15}}}
         output = {"narrative": "The company's revenue is shrinking."}
         result = run_grounding_check(_make_decline_check(), output, bundle)
         assert not result["passed"]
@@ -303,9 +294,7 @@ class TestDeclineCheck:
         assert result["passed"]
 
     def test_moderate_positive_not_contradiction(self):
-        bundle = {**SAMPLE_AGENT_BUNDLE, "metrics": {
-            "growths_extended": {"rev_cagr_5y": 0.03}
-        }}
+        bundle = {**SAMPLE_AGENT_BUNDLE, "metrics": {"growths_extended": {"rev_cagr_5y": 0.03}}}
         output = {"narrative": "Some segments are declining."}
         result = run_grounding_check(_make_decline_check(), output, bundle)
         assert result["passed"]
@@ -330,9 +319,7 @@ class TestRevenueDriversCheck:
         assert result["passed"]
 
     def test_null_revenue_entries(self):
-        bundle = {**SAMPLE_AGENT_BUNDLE, "timeseries": {
-            "is": [{"fiscal_year": 2023, "revenue": None}]
-        }}
+        bundle = {**SAMPLE_AGENT_BUNDLE, "timeseries": {"is": [{"fiscal_year": 2023, "revenue": None}]}}
         output = {"revenue_drivers": ["Cloud"]}
         result = run_grounding_check(_make_revenue_drivers_check(), output, bundle)
         assert not result["passed"]
@@ -342,24 +329,18 @@ class TestUnverifiableNumerics:
     def test_all_verifiable(self):
         output = {"narrative": "Revenue was $394 billion in 2022."}
         item1 = "Total net revenue was $394 billion for fiscal year 2022."
-        result = run_grounding_check(
-            _make_unverifiable_check(), output, SAMPLE_AGENT_BUNDLE, item1
-        )
+        result = run_grounding_check(_make_unverifiable_check(), output, SAMPLE_AGENT_BUNDLE, item1)
         assert result["passed"]
 
     def test_unverifiable_claim(self):
         output = {"narrative": "Revenue grew 42% driven by AI products."}
-        result = run_grounding_check(
-            _make_unverifiable_check(), output, SAMPLE_AGENT_BUNDLE, ""
-        )
+        result = run_grounding_check(_make_unverifiable_check(), output, SAMPLE_AGENT_BUNDLE, "")
         assert not result["passed"]
         assert result["severity"] == "soft"
 
     def test_no_numeric_claims(self):
         output = {"narrative": "Apple designs and sells consumer electronics."}
-        result = run_grounding_check(
-            _make_unverifiable_check(), output, SAMPLE_AGENT_BUNDLE, ""
-        )
+        result = run_grounding_check(_make_unverifiable_check(), output, SAMPLE_AGENT_BUNDLE, "")
         assert result["passed"]
 
 
@@ -386,9 +367,7 @@ class TestRunAllGroundingChecks:
         assert result["contradictions_found"] == 0
 
     def test_hard_contradiction_fails(self):
-        bundle = {**SAMPLE_AGENT_BUNDLE, "metrics": {
-            "growths_extended": {"rev_cagr_5y": -0.10}
-        }}
+        bundle = {**SAMPLE_AGENT_BUNDLE, "metrics": {"growths_extended": {"rev_cagr_5y": -0.10}}}
         output = {
             "narrative": "The company is growing rapidly.",
             "revenue_drivers": ["iPhone"],
@@ -414,9 +393,11 @@ class TestRunAllGroundingChecks:
         assert result["contradictions_found"] == 0
 
     def test_multiple_hard_failures(self):
-        bundle = {**SAMPLE_AGENT_BUNDLE, "metrics": {
-            "growths_extended": {"rev_cagr_5y": -0.10}
-        }, "timeseries": {"is": []}}
+        bundle = {
+            **SAMPLE_AGENT_BUNDLE,
+            "metrics": {"growths_extended": {"rev_cagr_5y": -0.10}},
+            "timeseries": {"is": []},
+        }
         output = {
             "narrative": "Revenue is expanding rapidly.",
             "revenue_drivers": ["Product A", "Product B"],

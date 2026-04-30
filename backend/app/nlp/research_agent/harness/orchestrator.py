@@ -17,22 +17,22 @@ from app.nlp.research_agent.harness.cost_tracker import (
     BudgetExceeded,
     CostTracker,
 )
-from app.nlp.research_agent.harness.evaluator import evaluate
-from app.nlp.research_agent.harness.state_manager import (
-    CONTRACTS_DIR,
-    SPRINT_NAMES,
-    StateManager,
-)
 from app.nlp.research_agent.harness.data_fetcher import DataFetcher
 from app.nlp.research_agent.harness.data_validator import (
+    check_sprint_readiness,
     validate_agent_bundle,
     validate_item1_text,
-    check_sprint_readiness,
 )
+from app.nlp.research_agent.harness.evaluator import evaluate
 from app.nlp.research_agent.harness.sanitizer import (
     sanitize_agent_bundle,
     sanitize_prior_outputs,
     sanitize_text,
+)
+from app.nlp.research_agent.harness.state_manager import (
+    CONTRACTS_DIR,
+    SPRINT_NAMES,
+    StateManager,
 )
 
 logger = logging.getLogger(__name__)
@@ -109,33 +109,37 @@ def run_sprint(
 
         if not builder_result.success or builder_result.output is None:
             eval_failures = [f"Builder failed to produce valid JSON (attempt {attempt})"]
-            state.write_builder_trace(sprint_name, {
-                "model": builder_result.model,
-                "input_tokens": builder_result.input_tokens,
-                "output_tokens": builder_result.output_tokens,
-                "cached_tokens": builder_result.cached_tokens,
-                "duration_seconds": builder_result.duration_seconds,
-                "attempt": attempt,
-                "error": True,
-                "raw_response_preview": builder_result.raw_response[:500],
-            })
-            logger.warning(
-                "Sprint %s attempt %d: builder failed", sprint_name, attempt
+            state.write_builder_trace(
+                sprint_name,
+                {
+                    "model": builder_result.model,
+                    "input_tokens": builder_result.input_tokens,
+                    "output_tokens": builder_result.output_tokens,
+                    "cached_tokens": builder_result.cached_tokens,
+                    "duration_seconds": builder_result.duration_seconds,
+                    "attempt": attempt,
+                    "error": True,
+                    "raw_response_preview": builder_result.raw_response[:500],
+                },
             )
+            logger.warning("Sprint %s attempt %d: builder failed", sprint_name, attempt)
             continue
 
         # Write builder output
         state.write_builder_output(sprint_name, builder_result.output)
 
         # Write builder trace
-        state.write_builder_trace(sprint_name, {
-            "model": builder_result.model,
-            "input_tokens": builder_result.input_tokens,
-            "output_tokens": builder_result.output_tokens,
-            "cached_tokens": builder_result.cached_tokens,
-            "duration_seconds": builder_result.duration_seconds,
-            "attempt": attempt,
-        })
+        state.write_builder_trace(
+            sprint_name,
+            {
+                "model": builder_result.model,
+                "input_tokens": builder_result.input_tokens,
+                "output_tokens": builder_result.output_tokens,
+                "cached_tokens": builder_result.cached_tokens,
+                "duration_seconds": builder_result.duration_seconds,
+                "attempt": attempt,
+            },
+        )
 
         # Evaluate
         eval_result = evaluate(
@@ -166,15 +170,14 @@ def run_sprint(
                 "cost_usd": cost_tracker.sprint_cost(sprint_name),
                 "duration_seconds": round(duration, 2),
                 "eval_score": eval_result.get("llm_evaluation", {}).get("overall", 0),
-                "grounding_contradictions": eval_result.get(
-                    "grounding_checks", {}
-                ).get("contradictions_found", 0),
+                "grounding_contradictions": eval_result.get("grounding_checks", {}).get("contradictions_found", 0),
                 "model_routing": model_routing,
             }
             state.update_sprint_in_manifest(sprint_name, sprint_data)
             logger.info(
                 "Sprint %s passed on attempt %d (score: %d)",
-                sprint_name, attempt,
+                sprint_name,
+                attempt,
                 sprint_data["eval_score"],
             )
             return sprint_data
@@ -183,7 +186,9 @@ def run_sprint(
         eval_failures = _collect_failures(eval_result)
         logger.info(
             "Sprint %s attempt %d failed: %s",
-            sprint_name, attempt, eval_failures,
+            sprint_name,
+            attempt,
+            eval_failures,
         )
 
     # All attempts exhausted — mark degraded
@@ -195,9 +200,7 @@ def run_sprint(
         "cost_usd": cost_tracker.sprint_cost(sprint_name),
         "duration_seconds": round(duration, 2),
         "eval_score": last_eval_result.get("llm_evaluation", {}).get("overall", 0),
-        "grounding_contradictions": last_eval_result.get(
-            "grounding_checks", {}
-        ).get("contradictions_found", 0),
+        "grounding_contradictions": last_eval_result.get("grounding_checks", {}).get("contradictions_found", 0),
         "failure_reasons": eval_failures,
         "model_routing": model_routing,
     }
@@ -271,9 +274,12 @@ def run_all_sprints(
         contract_path = CONTRACTS_DIR / f"{sprint_name}.json"
         if not contract_path.exists():
             logger.info("Sprint %s skipped: no contract file", sprint_name)
-            state.update_sprint_in_manifest(sprint_name, {
-                "status": "no_contract",
-            })
+            state.update_sprint_in_manifest(
+                sprint_name,
+                {
+                    "status": "no_contract",
+                },
+            )
             continue
 
         # Per-sprint data readiness gate
@@ -281,13 +287,17 @@ def run_all_sprints(
         if not readiness.ready:
             logger.warning(
                 "Sprint %s skipped: missing data fields: %s",
-                sprint_name, readiness.missing_fields,
+                sprint_name,
+                readiness.missing_fields,
             )
-            state.update_sprint_in_manifest(sprint_name, {
-                "status": "data_incomplete",
-                "missing_fields": readiness.missing_fields,
-                "warnings": readiness.warnings,
-            })
+            state.update_sprint_in_manifest(
+                sprint_name,
+                {
+                    "status": "data_incomplete",
+                    "missing_fields": readiness.missing_fields,
+                    "warnings": readiness.warnings,
+                },
+            )
             continue
         if readiness.warnings:
             logger.info("Sprint %s data warnings: %s", sprint_name, readiness.warnings)
@@ -347,9 +357,7 @@ def resume_from_sprint(
     for dep in deps:
         dep_status = manifest.get("sprints", {}).get(dep, {}).get("status")
         if dep_status != "passed":
-            raise ValueError(
-                f"Cannot restart {sprint_name}: dependency {dep} has status '{dep_status}'"
-            )
+            raise ValueError(f"Cannot restart {sprint_name}: dependency {dep} has status '{dep_status}'")
 
     # Determine scope
     if cascade:
@@ -416,6 +424,7 @@ def _downstream_sprints(start_sprint: str) -> list[str]:
 def _clear_sprint_artifacts(state: StateManager, sprint_name: str) -> None:
     """Remove builder output, eval result, and traces for a sprint so it re-runs fresh."""
     import shutil
+
     sprint_dir = state.sprint_dir(sprint_name)
     for filename in ["builder_output.json", "eval_result.json", "builder_trace.json"]:
         artifact = sprint_dir / filename

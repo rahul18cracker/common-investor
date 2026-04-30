@@ -54,7 +54,8 @@ class AnthropicLLMClient:
         if ssl_cert:
             http_client = httpx.Client(verify=ssl_cert)
             self.client = anthropic.Anthropic(
-                api_key=self._api_key, http_client=http_client,
+                api_key=self._api_key,
+                http_client=http_client,
             )
         else:
             self.client = anthropic.Anthropic(api_key=self._api_key)
@@ -63,15 +64,19 @@ class AnthropicLLMClient:
     def __call__(self, system_prompt: str, user_prompt: str, static_context: str | None = None) -> str:
         system_blocks = []
         if static_context:
-            system_blocks.append({
+            system_blocks.append(
+                {
+                    "type": "text",
+                    "text": static_context,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            )
+        system_blocks.append(
+            {
                 "type": "text",
-                "text": static_context,
-                "cache_control": {"type": "ephemeral"},
-            })
-        system_blocks.append({
-            "type": "text",
-            "text": system_prompt,
-        })
+                "text": system_prompt,
+            }
+        )
         response = self.client.messages.create(
             model=self.model_id,
             max_tokens=self.max_tokens,
@@ -82,12 +87,8 @@ class AnthropicLLMClient:
         self.last_usage = {
             "input_tokens": response.usage.input_tokens,
             "output_tokens": response.usage.output_tokens,
-            "cache_creation_input_tokens": getattr(
-                response.usage, "cache_creation_input_tokens", 0
-            ) or 0,
-            "cache_read_input_tokens": getattr(
-                response.usage, "cache_read_input_tokens", 0
-            ) or 0,
+            "cache_creation_input_tokens": getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+            "cache_read_input_tokens": getattr(response.usage, "cache_read_input_tokens", 0) or 0,
         }
 
         return response.content[0].text

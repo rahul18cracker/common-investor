@@ -57,9 +57,7 @@ class TestFetchAll:
             # First call to client.get raises 404
             mock_response_404 = MagicMock()
             mock_response_404.status_code = 404
-            error_404 = httpx.HTTPStatusError(
-                "404 Not Found", request=MagicMock(), response=mock_response_404
-            )
+            error_404 = httpx.HTTPStatusError("404 Not Found", request=MagicMock(), response=mock_response_404)
             mock_client.get.side_effect = error_404
 
             # Second call to client.post (succeeds)
@@ -93,9 +91,7 @@ class TestFetchAll:
             # Second call to client.post raises 404
             mock_response_404 = MagicMock()
             mock_response_404.status_code = 404
-            error_404 = httpx.HTTPStatusError(
-                "404 Not Found", request=MagicMock(), response=mock_response_404
-            )
+            error_404 = httpx.HTTPStatusError("404 Not Found", request=MagicMock(), response=mock_response_404)
             mock_client.post.side_effect = error_404
 
             result = fetcher.fetch_all("UNKNOWN")

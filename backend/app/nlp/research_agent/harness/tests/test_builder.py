@@ -14,7 +14,6 @@ from app.nlp.research_agent.harness.builder import (
     parse_builder_response,
 )
 
-
 # --- Fixtures ---
 
 SAMPLE_CONTRACT = {
@@ -35,13 +34,15 @@ SAMPLE_BUNDLE = {
 
 SAMPLE_ITEM1 = "Apple Inc. designs, manufactures, and markets smartphones and personal computers."
 
-GOOD_JSON_RESPONSE = json.dumps({
-    "ticker": "AAPL",
-    "name": "Apple Inc",
-    "narrative": "A" * 500,
-    "products_services": ["iPhone", "Mac"],
-    "pricing_model": ["one_time", "subscription"],
-})
+GOOD_JSON_RESPONSE = json.dumps(
+    {
+        "ticker": "AAPL",
+        "name": "Apple Inc",
+        "narrative": "A" * 500,
+        "products_services": ["iPhone", "Mac"],
+        "pricing_model": ["one_time", "subscription"],
+    }
+)
 
 
 # --- build_static_prefix ---
@@ -108,18 +109,14 @@ class TestBuildDynamicSuffix:
 
     def test_retry_context(self):
         failures = ["Missing field: geographies", "Narrative too short"]
-        suffix = build_dynamic_suffix(
-            SAMPLE_CONTRACT, eval_failures=failures, attempt=2
-        )
+        suffix = build_dynamic_suffix(SAMPLE_CONTRACT, eval_failures=failures, attempt=2)
         assert "attempt 2" in suffix
         assert "Missing field: geographies" in suffix
         assert "Narrative too short" in suffix
 
     def test_first_attempt_no_retry_context(self):
         failures = ["Some failure"]
-        suffix = build_dynamic_suffix(
-            SAMPLE_CONTRACT, eval_failures=failures, attempt=1
-        )
+        suffix = build_dynamic_suffix(SAMPLE_CONTRACT, eval_failures=failures, attempt=1)
         assert "Previous Attempt Failed" not in suffix
 
     def test_unknown_sprint_still_works(self):
@@ -145,7 +142,7 @@ class TestParseBuilderResponse:
         assert parse_builder_response("not json") is None
 
     def test_json_array_rejected(self):
-        assert parse_builder_response('[1, 2, 3]') is None
+        assert parse_builder_response("[1, 2, 3]") is None
 
     def test_empty_string(self):
         assert parse_builder_response("") is None
@@ -166,8 +163,14 @@ class TestParseBuilderResponse:
 class TestSprintPrompts:
     def test_all_eight_sprints_have_prompts(self):
         expected = [
-            "01_business_profile", "02_unit_economics", "03_industry",
-            "04_moat", "05_management", "06_peers", "07_risks", "08_thesis",
+            "01_business_profile",
+            "02_unit_economics",
+            "03_industry",
+            "04_moat",
+            "05_management",
+            "06_peers",
+            "07_risks",
+            "08_thesis",
         ]
         for sprint in expected:
             assert sprint in SPRINT_PROMPTS, f"Missing prompt for {sprint}"
@@ -201,7 +204,9 @@ def _mock_llm_error(system_prompt: str, user_prompt: str, **kwargs) -> str:
 class TestBuild:
     def test_successful_build(self):
         result = build(
-            SAMPLE_CONTRACT, SAMPLE_BUNDLE, SAMPLE_ITEM1,
+            SAMPLE_CONTRACT,
+            SAMPLE_BUNDLE,
+            SAMPLE_ITEM1,
             llm_call=_mock_llm_good,
         )
         assert result.success
@@ -212,7 +217,9 @@ class TestBuild:
 
     def test_bad_json_response(self):
         result = build(
-            SAMPLE_CONTRACT, SAMPLE_BUNDLE, SAMPLE_ITEM1,
+            SAMPLE_CONTRACT,
+            SAMPLE_BUNDLE,
+            SAMPLE_ITEM1,
             llm_call=_mock_llm_bad_json,
         )
         assert not result.success
@@ -221,7 +228,9 @@ class TestBuild:
 
     def test_llm_exception(self):
         result = build(
-            SAMPLE_CONTRACT, SAMPLE_BUNDLE, SAMPLE_ITEM1,
+            SAMPLE_CONTRACT,
+            SAMPLE_BUNDLE,
+            SAMPLE_ITEM1,
             llm_call=_mock_llm_error,
         )
         assert not result.success
@@ -230,7 +239,9 @@ class TestBuild:
 
     def test_no_llm_callable(self):
         result = build(
-            SAMPLE_CONTRACT, SAMPLE_BUNDLE, SAMPLE_ITEM1,
+            SAMPLE_CONTRACT,
+            SAMPLE_BUNDLE,
+            SAMPLE_ITEM1,
             llm_call=None,
         )
         assert not result.success
@@ -239,23 +250,32 @@ class TestBuild:
     def test_with_prior_outputs(self):
         prior = {"01_business_profile": {"ticker": "AAPL"}}
         result = build(
-            SAMPLE_CONTRACT, SAMPLE_BUNDLE, SAMPLE_ITEM1,
-            prior_outputs=prior, llm_call=_mock_llm_good,
+            SAMPLE_CONTRACT,
+            SAMPLE_BUNDLE,
+            SAMPLE_ITEM1,
+            prior_outputs=prior,
+            llm_call=_mock_llm_good,
         )
         assert result.success
 
     def test_retry_attempt(self):
         failures = ["Narrative too short"]
         result = build(
-            SAMPLE_CONTRACT, SAMPLE_BUNDLE, SAMPLE_ITEM1,
-            eval_failures=failures, attempt=2, llm_call=_mock_llm_good,
+            SAMPLE_CONTRACT,
+            SAMPLE_BUNDLE,
+            SAMPLE_ITEM1,
+            eval_failures=failures,
+            attempt=2,
+            llm_call=_mock_llm_good,
         )
         assert result.success
 
     def test_model_from_contract(self):
         contract = {**SAMPLE_CONTRACT, "model_tier": "sonnet"}
         result = build(
-            contract, SAMPLE_BUNDLE, SAMPLE_ITEM1,
+            contract,
+            SAMPLE_BUNDLE,
+            SAMPLE_ITEM1,
             llm_call=_mock_llm_good,
         )
         assert result.model == "sonnet"

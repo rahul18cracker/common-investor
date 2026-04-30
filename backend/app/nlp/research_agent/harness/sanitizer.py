@@ -83,9 +83,7 @@ class SanitizeResult:
 
 def _strip_control_chars(text: str) -> str:
     """Strip ASCII control characters (0-31, 127); preserve unicode and printable ASCII."""
-    return "".join(
-        c for c in text if ord(c) >= 32 and ord(c) != 127 or c in "\n\t\r"
-    )
+    return "".join(c for c in text if ord(c) >= 32 and ord(c) != 127 or c in "\n\t\r")
 
 
 def _strip_html_tags(text: str) -> str:

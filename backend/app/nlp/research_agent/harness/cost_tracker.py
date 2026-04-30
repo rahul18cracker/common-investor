@@ -171,10 +171,7 @@ class CostTracker:
     def check_budget(self) -> None:
         """Raise BudgetExceeded if the hard limit is hit."""
         if self.is_hard_exceeded():
-            raise BudgetExceeded(
-                f"Hard budget limit ${self.hard_limit:.2f} exceeded: "
-                f"${self.total_cost:.4f} spent"
-            )
+            raise BudgetExceeded(f"Hard budget limit ${self.hard_limit:.2f} exceeded: " f"${self.total_cost:.4f} spent")
 
     def sprint_cost(self, sprint_name: str) -> float:
         sprint = self._sprints.get(sprint_name)
@@ -187,7 +184,5 @@ class CostTracker:
             "hard_limit_usd": self.hard_limit,
             "soft_exceeded": self.is_soft_exceeded(),
             "hard_exceeded": self.is_hard_exceeded(),
-            "sprints": {
-                name: sc.to_dict() for name, sc in self._sprints.items()
-            },
+            "sprints": {name: sc.to_dict() for name, sc in self._sprints.items()},
         }

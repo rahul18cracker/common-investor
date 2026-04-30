@@ -27,9 +27,28 @@ def resolve_path(data: dict[str, Any], dotted_path: str) -> Any:
 NEGATION_WINDOW = 4
 
 NEGATION_WORDS = frozenset(
-    ["not", "no", "isn't", "isnt", "aren't", "arent", "wasn't", "wasnt",
-     "hasn't", "hasnt", "without", "lack", "lacks", "lacking", "neither",
-     "never", "barely", "hardly", "unlikely", "despite"]
+    [
+        "not",
+        "no",
+        "isn't",
+        "isnt",
+        "aren't",
+        "arent",
+        "wasn't",
+        "wasnt",
+        "hasn't",
+        "hasnt",
+        "without",
+        "lack",
+        "lacks",
+        "lacking",
+        "neither",
+        "never",
+        "barely",
+        "hardly",
+        "unlikely",
+        "despite",
+    ]
 )
 
 

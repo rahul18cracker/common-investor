@@ -22,7 +22,6 @@ from app.nlp.research_agent.harness.grounding import (
     run_all_grounding_checks,
 )
 
-
 # --- LLM callable protocol (for dependency injection in tests) ---
 
 
@@ -33,9 +32,7 @@ class LLMCallable(Protocol):
 # --- Layer 1: Schema validation ---
 
 
-def check_schema(
-    builder_output: dict[str, Any], contract: dict[str, Any]
-) -> dict[str, Any]:
+def check_schema(builder_output: dict[str, Any], contract: dict[str, Any]) -> dict[str, Any]:
     """Validate builder output against contract schema rules."""
     schema = contract.get("output_schema", {})
     failures: list[str] = []
@@ -83,22 +80,15 @@ def check_schema(
         if isinstance(val, list):
             for item in val:
                 if item not in allowed:
-                    failures.append(
-                        f"Field '{field}' contains invalid value '{item}', "
-                        f"allowed: {allowed}"
-                    )
+                    failures.append(f"Field '{field}' contains invalid value '{item}', " f"allowed: {allowed}")
         elif isinstance(val, str) and val not in allowed:
-            failures.append(
-                f"Field '{field}' has invalid value '{val}', allowed: {allowed}"
-            )
+            failures.append(f"Field '{field}' has invalid value '{val}', allowed: {allowed}")
 
     str_mins = schema.get("string_minimums", {})
     for field, min_len in str_mins.items():
         val = builder_output.get(field, "")
         if isinstance(val, str) and len(val) < min_len:
-            failures.append(
-                f"Field '{field}' is {len(val)} chars, minimum is {min_len}"
-            )
+            failures.append(f"Field '{field}' is {len(val)} chars, minimum is {min_len}")
 
     return {
         "schema_valid": len(failures) == 0,
@@ -142,19 +132,13 @@ def check_cross_references(
         if match_type == "case_insensitive_exact":
             passed = source_str.lower() == target_str.lower()
         elif match_type == "substring_either_direction":
-            passed = (
-                source_str.lower() in target_str.lower()
-                or target_str.lower() in source_str.lower()
-            )
+            passed = source_str.lower() in target_str.lower() or target_str.lower() in source_str.lower()
         else:
             passed = source_str == target_str
 
         results[check_name] = passed
         if not passed:
-            failures.append(
-                f"Cross-reference '{check_name}' failed: "
-                f"source='{source_str}', target='{target_str}'"
-            )
+            failures.append(f"Cross-reference '{check_name}' failed: " f"source='{source_str}', target='{target_str}'")
 
     return {
         **results,
@@ -165,8 +149,7 @@ def check_cross_references(
 # --- Layer 4: LLM adversarial evaluation ---
 
 EVALUATOR_SYSTEM_PROMPT = (
-    EVALUATOR_FRAMEWORK_ADDENDUM
-    + "\n---\n\n"
+    EVALUATOR_FRAMEWORK_ADDENDUM + "\n---\n\n"
     "You are a skeptical investment analyst reviewing a colleague's work. "
     "Your job is to find errors, unsupported claims, and gaps. "
     "Score harshly — a mediocre analysis that passes is worse than a good "
@@ -205,13 +188,13 @@ def build_llm_eval_prompt(
         f"## Scoring criteria:{criteria_text}\n\n"
         f"## Required response format:\n"
         f"```json\n"
-        f'{{\n'
+        f"{{\n"
         f'  "evidence_quality": {{"score": <0-5>, "notes": "<1-2 sentences>"}},\n'
         f'  "completeness": {{"score": <0-5>, "notes": "<1-2 sentences>"}},\n'
         f'  "consistency": {{"score": <0-5>, "notes": "<1-2 sentences>"}},\n'
         f'  "red_flags": {{"score": <0-5>, "notes": "<1-2 sentences>"}},\n'
         f'  "failures": ["<specific failure if any>"]\n'
-        f'}}\n'
+        f"}}\n"
         f"```\n"
     )
 
@@ -298,9 +281,7 @@ def evaluate(
 
     # L3: Grounding
     grounding_checks = contract.get("grounding_checks", [])
-    grounding_result = run_all_grounding_checks(
-        grounding_checks, builder_output, agent_bundle, item1_text
-    )
+    grounding_result = run_all_grounding_checks(grounding_checks, builder_output, agent_bundle, item1_text)
 
     # Determine if deterministic layers pass
     threshold = contract.get("pass_threshold", {})
@@ -316,9 +297,7 @@ def evaluate(
         except Exception as e:
             llm_result = _default_llm_eval(error=f"LLM call failed: {e}")
     elif not deterministic_pass or not grounding_pass:
-        llm_result = _default_llm_eval(
-            error="Skipped: deterministic checks failed"
-        )
+        llm_result = _default_llm_eval(error="Skipped: deterministic checks failed")
     else:
         llm_result = _default_llm_eval(error="No LLM callable provided")
 

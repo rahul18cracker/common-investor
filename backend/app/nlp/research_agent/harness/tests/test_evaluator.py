@@ -12,7 +12,6 @@ from app.nlp.research_agent.harness.evaluator import (
     parse_llm_eval_response,
 )
 
-
 # --- Fixtures ---
 
 
@@ -271,26 +270,30 @@ class TestBuildLLMEvalPrompt:
 
 class TestParseLLMEvalResponse:
     def test_valid_response(self):
-        raw = json.dumps({
-            "evidence_quality": {"score": 4, "notes": "Good specifics."},
-            "completeness": {"score": 5, "notes": "All covered."},
-            "consistency": {"score": 4, "notes": "Mostly aligned."},
-            "red_flags": {"score": 5, "notes": "Clean output."},
-            "failures": [],
-        })
+        raw = json.dumps(
+            {
+                "evidence_quality": {"score": 4, "notes": "Good specifics."},
+                "completeness": {"score": 5, "notes": "All covered."},
+                "consistency": {"score": 4, "notes": "Mostly aligned."},
+                "red_flags": {"score": 5, "notes": "Clean output."},
+                "failures": [],
+            }
+        )
         result = parse_llm_eval_response(raw, SAMPLE_CONTRACT)
         assert result["overall"] == 18
         assert result["pass"]
         assert result["failures"] == []
 
     def test_below_threshold(self):
-        raw = json.dumps({
-            "evidence_quality": {"score": 2, "notes": "Vague."},
-            "completeness": {"score": 3, "notes": "Gaps."},
-            "consistency": {"score": 2, "notes": "Issues."},
-            "red_flags": {"score": 2, "notes": "Marketing tone."},
-            "failures": ["Vague revenue drivers"],
-        })
+        raw = json.dumps(
+            {
+                "evidence_quality": {"score": 2, "notes": "Vague."},
+                "completeness": {"score": 3, "notes": "Gaps."},
+                "consistency": {"score": 2, "notes": "Issues."},
+                "red_flags": {"score": 2, "notes": "Marketing tone."},
+                "failures": ["Vague revenue drivers"],
+            }
+        )
         result = parse_llm_eval_response(raw, SAMPLE_CONTRACT)
         assert result["overall"] == 9
         assert not result["pass"]
@@ -307,13 +310,15 @@ class TestParseLLMEvalResponse:
         assert result["overall"] == 0
 
     def test_score_clamped(self):
-        raw = json.dumps({
-            "evidence_quality": {"score": 99, "notes": ""},
-            "completeness": {"score": -5, "notes": ""},
-            "consistency": {"score": 3, "notes": ""},
-            "red_flags": {"score": 4, "notes": ""},
-            "failures": [],
-        })
+        raw = json.dumps(
+            {
+                "evidence_quality": {"score": 99, "notes": ""},
+                "completeness": {"score": -5, "notes": ""},
+                "consistency": {"score": 3, "notes": ""},
+                "red_flags": {"score": 4, "notes": ""},
+                "failures": [],
+            }
+        )
         result = parse_llm_eval_response(raw, SAMPLE_CONTRACT)
         assert result["evidence_quality"]["score"] == 5
         assert result["completeness"]["score"] == 0
@@ -323,23 +328,27 @@ class TestParseLLMEvalResponse:
 
 
 def _mock_llm_pass(system_prompt: str, user_prompt: str) -> str:
-    return json.dumps({
-        "evidence_quality": {"score": 4, "notes": "Good."},
-        "completeness": {"score": 4, "notes": "Complete."},
-        "consistency": {"score": 4, "notes": "Consistent."},
-        "red_flags": {"score": 4, "notes": "Clean."},
-        "failures": [],
-    })
+    return json.dumps(
+        {
+            "evidence_quality": {"score": 4, "notes": "Good."},
+            "completeness": {"score": 4, "notes": "Complete."},
+            "consistency": {"score": 4, "notes": "Consistent."},
+            "red_flags": {"score": 4, "notes": "Clean."},
+            "failures": [],
+        }
+    )
 
 
 def _mock_llm_fail(system_prompt: str, user_prompt: str) -> str:
-    return json.dumps({
-        "evidence_quality": {"score": 1, "notes": "Vague."},
-        "completeness": {"score": 2, "notes": "Gaps."},
-        "consistency": {"score": 1, "notes": "Contradictions."},
-        "red_flags": {"score": 1, "notes": "Marketing copy."},
-        "failures": ["Multiple issues found"],
-    })
+    return json.dumps(
+        {
+            "evidence_quality": {"score": 1, "notes": "Vague."},
+            "completeness": {"score": 2, "notes": "Gaps."},
+            "consistency": {"score": 1, "notes": "Contradictions."},
+            "red_flags": {"score": 1, "notes": "Marketing copy."},
+            "failures": ["Multiple issues found"],
+        }
+    )
 
 
 def _mock_llm_error(system_prompt: str, user_prompt: str) -> str:
@@ -349,7 +358,9 @@ def _mock_llm_error(system_prompt: str, user_prompt: str) -> str:
 class TestEvaluate:
     def test_full_pass(self):
         result = evaluate(
-            GOOD_OUTPUT, SAMPLE_AGENT_BUNDLE, SAMPLE_CONTRACT,
+            GOOD_OUTPUT,
+            SAMPLE_AGENT_BUNDLE,
+            SAMPLE_CONTRACT,
             llm_call=_mock_llm_pass,
         )
         assert result["pass"]
@@ -363,7 +374,9 @@ class TestEvaluate:
         bad_output = {**GOOD_OUTPUT}
         del bad_output["ticker"]
         result = evaluate(
-            bad_output, SAMPLE_AGENT_BUNDLE, SAMPLE_CONTRACT,
+            bad_output,
+            SAMPLE_AGENT_BUNDLE,
+            SAMPLE_CONTRACT,
             llm_call=_mock_llm_pass,
         )
         assert not result["pass"]
@@ -374,7 +387,9 @@ class TestEvaluate:
     def test_xref_failure_skips_llm(self):
         bad_output = {**GOOD_OUTPUT, "ticker": "MSFT"}
         result = evaluate(
-            bad_output, SAMPLE_AGENT_BUNDLE, SAMPLE_CONTRACT,
+            bad_output,
+            SAMPLE_AGENT_BUNDLE,
+            SAMPLE_CONTRACT,
             llm_call=_mock_llm_pass,
         )
         assert not result["pass"]
@@ -385,11 +400,14 @@ class TestEvaluate:
             **SAMPLE_AGENT_BUNDLE,
             "metrics": {"growths_extended": {"rev_cagr_5y": -0.10}},
         }
-        output = {**GOOD_OUTPUT, "narrative": GOOD_OUTPUT["narrative"].replace(
-            "represents a growing", "represents a growing"
-        )}
+        output = {
+            **GOOD_OUTPUT,
+            "narrative": GOOD_OUTPUT["narrative"].replace("represents a growing", "represents a growing"),
+        }
         result = evaluate(
-            output, bundle, SAMPLE_CONTRACT,
+            output,
+            bundle,
+            SAMPLE_CONTRACT,
             llm_call=_mock_llm_pass,
         )
         assert not result["pass"]
@@ -397,7 +415,9 @@ class TestEvaluate:
 
     def test_llm_failure_overall_fails(self):
         result = evaluate(
-            GOOD_OUTPUT, SAMPLE_AGENT_BUNDLE, SAMPLE_CONTRACT,
+            GOOD_OUTPUT,
+            SAMPLE_AGENT_BUNDLE,
+            SAMPLE_CONTRACT,
             llm_call=_mock_llm_fail,
         )
         assert not result["pass"]
@@ -405,7 +425,9 @@ class TestEvaluate:
 
     def test_no_llm_callable(self):
         result = evaluate(
-            GOOD_OUTPUT, SAMPLE_AGENT_BUNDLE, SAMPLE_CONTRACT,
+            GOOD_OUTPUT,
+            SAMPLE_AGENT_BUNDLE,
+            SAMPLE_CONTRACT,
             llm_call=None,
         )
         assert not result["pass"]
@@ -413,7 +435,9 @@ class TestEvaluate:
 
     def test_llm_exception_handled(self):
         result = evaluate(
-            GOOD_OUTPUT, SAMPLE_AGENT_BUNDLE, SAMPLE_CONTRACT,
+            GOOD_OUTPUT,
+            SAMPLE_AGENT_BUNDLE,
+            SAMPLE_CONTRACT,
             llm_call=_mock_llm_error,
         )
         assert not result["pass"]
@@ -421,14 +445,18 @@ class TestEvaluate:
 
     def test_empty_contract(self):
         result = evaluate(
-            {"ticker": "AAPL"}, {}, {},
+            {"ticker": "AAPL"},
+            {},
+            {},
             llm_call=_mock_llm_pass,
         )
         assert result["deterministic_checks"]["schema_valid"]
 
     def test_grounding_with_item1(self):
         result = evaluate(
-            GOOD_OUTPUT, SAMPLE_AGENT_BUNDLE, SAMPLE_CONTRACT,
+            GOOD_OUTPUT,
+            SAMPLE_AGENT_BUNDLE,
+            SAMPLE_CONTRACT,
             item1_text="Apple Inc designs and markets consumer electronics.",
             llm_call=_mock_llm_pass,
         )

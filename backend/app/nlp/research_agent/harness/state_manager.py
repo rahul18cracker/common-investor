@@ -72,15 +72,11 @@ class StateManager:
         self.write_json(self.root / "manifest.json", manifest)
         return manifest
 
-    def update_sprint_in_manifest(
-        self, sprint_name: str, sprint_data: dict[str, Any]
-    ) -> dict[str, Any]:
+    def update_sprint_in_manifest(self, sprint_name: str, sprint_data: dict[str, Any]) -> dict[str, Any]:
         """Set or update a single sprint entry in the manifest."""
         manifest = self.read_manifest()
         manifest["sprints"][sprint_name] = sprint_data
-        manifest["total_cost_usd"] = sum(
-            s.get("cost_usd", 0.0) for s in manifest["sprints"].values()
-        )
+        manifest["total_cost_usd"] = sum(s.get("cost_usd", 0.0) for s in manifest["sprints"].values())
         self.write_json(self.root / "manifest.json", manifest)
         return manifest
 

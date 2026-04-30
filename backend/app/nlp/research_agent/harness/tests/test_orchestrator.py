@@ -12,7 +12,6 @@ from app.nlp.research_agent.harness.orchestrator import (
 )
 from app.nlp.research_agent.harness.state_manager import StateManager
 
-
 # --- Fixtures ---
 
 SAMPLE_AGENT_BUNDLE = {
@@ -81,13 +80,15 @@ def _make_evaluator_llm(pass_eval=True):
     score = 4 if pass_eval else 1
 
     def mock_llm(system_prompt: str, user_prompt: str, **kwargs) -> str:
-        return json.dumps({
-            "evidence_quality": {"score": score, "notes": "test"},
-            "completeness": {"score": score, "notes": "test"},
-            "consistency": {"score": score, "notes": "test"},
-            "red_flags": {"score": score, "notes": "test"},
-            "failures": [] if pass_eval else ["Test failure"],
-        })
+        return json.dumps(
+            {
+                "evidence_quality": {"score": score, "notes": "test"},
+                "completeness": {"score": score, "notes": "test"},
+                "consistency": {"score": score, "notes": "test"},
+                "red_flags": {"score": score, "notes": "test"},
+                "failures": [] if pass_eval else ["Test failure"],
+            }
+        )
 
     return mock_llm
 
@@ -109,7 +110,9 @@ class TestRunSprint:
     def test_pass_on_first_attempt(self, state):
         ct = CostTracker()
         result = run_sprint(
-            "01_business_profile", state, ct,
+            "01_business_profile",
+            state,
+            ct,
             builder_llm=_make_builder_llm(),
             evaluator_llm=_make_evaluator_llm(pass_eval=True),
         )
@@ -124,7 +127,9 @@ class TestRunSprint:
     def test_retry_on_builder_failure(self, state):
         ct = CostTracker()
         result = run_sprint(
-            "01_business_profile", state, ct,
+            "01_business_profile",
+            state,
+            ct,
             builder_llm=_make_builder_llm(fail_first_n=1),
             evaluator_llm=_make_evaluator_llm(pass_eval=True),
         )
@@ -134,7 +139,9 @@ class TestRunSprint:
     def test_degraded_after_all_attempts(self, state):
         ct = CostTracker()
         result = run_sprint(
-            "01_business_profile", state, ct,
+            "01_business_profile",
+            state,
+            ct,
             builder_llm=_make_builder_llm(fail_first_n=10),
             evaluator_llm=_make_evaluator_llm(pass_eval=True),
         )
@@ -144,7 +151,9 @@ class TestRunSprint:
     def test_degraded_on_eval_failure(self, state):
         ct = CostTracker()
         result = run_sprint(
-            "01_business_profile", state, ct,
+            "01_business_profile",
+            state,
+            ct,
             builder_llm=_make_builder_llm(),
             evaluator_llm=_make_evaluator_llm(pass_eval=False),
         )
@@ -154,7 +163,9 @@ class TestRunSprint:
     def test_skip_retries(self, state):
         ct = CostTracker()
         result = run_sprint(
-            "01_business_profile", state, ct,
+            "01_business_profile",
+            state,
+            ct,
             builder_llm=_make_builder_llm(),
             evaluator_llm=_make_evaluator_llm(pass_eval=False),
             skip_retries=True,
@@ -165,7 +176,9 @@ class TestRunSprint:
     def test_state_files_written(self, state):
         ct = CostTracker()
         run_sprint(
-            "01_business_profile", state, ct,
+            "01_business_profile",
+            state,
+            ct,
             builder_llm=_make_builder_llm(),
             evaluator_llm=_make_evaluator_llm(pass_eval=True),
         )
@@ -177,7 +190,9 @@ class TestRunSprint:
     def test_cost_tracked(self, state):
         ct = CostTracker()
         run_sprint(
-            "01_business_profile", state, ct,
+            "01_business_profile",
+            state,
+            ct,
             builder_llm=_make_builder_llm(),
             evaluator_llm=_make_evaluator_llm(pass_eval=True),
         )

@@ -41,13 +41,14 @@ def latest_10k_primary_doc(cik: str):
 
 def extract_item_1_business(html_text: str) -> str:
     import warnings
+
     from bs4 import XMLParsedAsHTMLWarning
+
     warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
     soup = BeautifulSoup(html_text, "lxml")
     text = soup.get_text("\n")
     pattern = re.compile(
-        r"(item\s+1\.?\s*business.*?)(?=item\s+1a\.?|item\s+2\.|item\s+2\s)",
-        re.IGNORECASE | re.DOTALL
+        r"(item\s+1\.?\s*business.*?)(?=item\s+1a\.?|item\s+2\.|item\s+2\s)", re.IGNORECASE | re.DOTALL
     )
     # Take last match to skip Table of Contents entry
     matches = list(pattern.finditer(text))

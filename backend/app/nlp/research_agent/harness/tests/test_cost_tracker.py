@@ -20,15 +20,9 @@ class TestLLMUsage:
         assert abs(u.cost_usd - expected) < 1e-9
 
     def test_haiku_cost_with_cache(self):
-        u = LLMUsage(
-            model="haiku", input_tokens=10_000, output_tokens=1_000, cached_tokens=6_000
-        )
+        u = LLMUsage(model="haiku", input_tokens=10_000, output_tokens=1_000, cached_tokens=6_000)
         non_cached = 4_000
-        expected = (
-            non_cached * 0.80 / 1e6
-            + 1_000 * 4.00 / 1e6
-            + 6_000 * 0.08 / 1e6
-        )
+        expected = non_cached * 0.80 / 1e6 + 1_000 * 4.00 / 1e6 + 6_000 * 0.08 / 1e6
         assert abs(u.cost_usd - expected) < 1e-9
 
     def test_sonnet_cost(self):
@@ -46,9 +40,7 @@ class TestLLMUsage:
         assert u.cost_usd == 0.0
 
     def test_all_cached(self):
-        u = LLMUsage(
-            model="haiku", input_tokens=10_000, output_tokens=500, cached_tokens=10_000
-        )
+        u = LLMUsage(model="haiku", input_tokens=10_000, output_tokens=500, cached_tokens=10_000)
         expected = 500 * 4.00 / 1e6 + 10_000 * 0.08 / 1e6
         assert abs(u.cost_usd - expected) < 1e-9
 
@@ -67,9 +59,7 @@ class TestSprintCost:
 
     def test_builder_cost(self):
         sc = SprintCost(sprint_name="01_business_profile")
-        sc.builder_usages.append(
-            LLMUsage(model="haiku", input_tokens=8_000, output_tokens=1_200)
-        )
+        sc.builder_usages.append(LLMUsage(model="haiku", input_tokens=8_000, output_tokens=1_200))
         assert sc.builder_cost > 0
         assert sc.eval_cost == 0.0
 
@@ -86,19 +76,13 @@ class TestSprintCost:
 
     def test_total_combines_all(self):
         sc = SprintCost(sprint_name="01_business_profile", tavily_searches=2)
-        sc.builder_usages.append(
-            LLMUsage(model="haiku", input_tokens=8_000, output_tokens=1_000)
-        )
-        sc.eval_usages.append(
-            LLMUsage(model="haiku", input_tokens=3_000, output_tokens=500)
-        )
+        sc.builder_usages.append(LLMUsage(model="haiku", input_tokens=8_000, output_tokens=1_000))
+        sc.eval_usages.append(LLMUsage(model="haiku", input_tokens=3_000, output_tokens=500))
         assert sc.total_cost == sc.builder_cost + sc.eval_cost + sc.tavily_cost
 
     def test_to_dict(self):
         sc = SprintCost(sprint_name="01_business_profile", tavily_searches=1)
-        sc.builder_usages.append(
-            LLMUsage(model="haiku", input_tokens=8_000, output_tokens=1_000)
-        )
+        sc.builder_usages.append(LLMUsage(model="haiku", input_tokens=8_000, output_tokens=1_000))
         d = sc.to_dict()
         assert d["sprint_name"] == "01_business_profile"
         assert d["tavily_searches"] == 1

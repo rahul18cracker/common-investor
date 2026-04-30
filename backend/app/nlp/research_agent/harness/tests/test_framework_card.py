@@ -25,9 +25,7 @@ class TestFrameworkCard:
     def test_framework_card_token_budget(self):
         """FRAMEWORK_CARD token count is between 700 and 1200 (rough len/4 estimate)."""
         token_estimate = len(FRAMEWORK_CARD) / 4
-        assert 700 <= token_estimate <= 1200, (
-            f"Token estimate {token_estimate:.0f} outside range [700, 1200]"
-        )
+        assert 700 <= token_estimate <= 1200, f"Token estimate {token_estimate:.0f} outside range [700, 1200]"
 
     @pytest.mark.unit
     def test_framework_card_contains_key_terms(self):
@@ -52,9 +50,7 @@ class TestFrameworkCard:
     def test_framework_card_contains_thresholds(self):
         """FRAMEWORK_CARD contains ROIC threshold (0.15 or 15%)."""
         # Threshold should appear somewhere
-        assert (
-            "0.15" in FRAMEWORK_CARD or "15%" in FRAMEWORK_CARD
-        ), "ROIC threshold (0.15 or 15%) not found"
+        assert "0.15" in FRAMEWORK_CARD or "15%" in FRAMEWORK_CARD, "ROIC threshold (0.15 or 15%) not found"
 
     @pytest.mark.unit
     def test_framework_card_contains_big_five_section(self):
@@ -98,16 +94,12 @@ class TestFrameworkCard:
     @pytest.mark.unit
     def test_framework_card_contains_payout_sweet_spot(self):
         """FRAMEWORK_CARD mentions payout ratio sweet spot (0-0.6)."""
-        assert (
-            "0–0.6" in FRAMEWORK_CARD or "0-0.6" in FRAMEWORK_CARD
-        ), "Payout ratio sweet spot (0-0.6) not found"
+        assert "0–0.6" in FRAMEWORK_CARD or "0-0.6" in FRAMEWORK_CARD, "Payout ratio sweet spot (0-0.6) not found"
 
     @pytest.mark.unit
     def test_framework_card_contains_ten_red_flags(self):
         """FRAMEWORK_CARD contains red flags checklist with 10 items."""
-        red_flags_section = FRAMEWORK_CARD[
-            FRAMEWORK_CARD.find("RED FLAGS CHECKLIST") :
-        ]
+        red_flags_section = FRAMEWORK_CARD[FRAMEWORK_CARD.find("RED FLAGS CHECKLIST") :]
         # Count numbered items (1. through 10.)
         flag_count = 0
         for i in range(1, 11):
@@ -135,16 +127,16 @@ class TestEvaluatorFrameworkAddendum:
     @pytest.mark.unit
     def test_evaluator_addendum_shorter_than_card(self):
         """EVALUATOR_FRAMEWORK_ADDENDUM is shorter than FRAMEWORK_CARD."""
-        assert len(EVALUATOR_FRAMEWORK_ADDENDUM) < len(FRAMEWORK_CARD), (
-            "Addendum should be shorter than main card for evaluator brevity"
-        )
+        assert len(EVALUATOR_FRAMEWORK_ADDENDUM) < len(
+            FRAMEWORK_CARD
+        ), "Addendum should be shorter than main card for evaluator brevity"
 
     @pytest.mark.unit
     def test_evaluator_addendum_contains_rubric(self):
         """EVALUATOR_FRAMEWORK_ADDENDUM contains QVG scoring rubric with point weights."""
-        assert "0–25" in EVALUATOR_FRAMEWORK_ADDENDUM or "0-25" in EVALUATOR_FRAMEWORK_ADDENDUM, (
-            "QVG rubric weights not found"
-        )
+        assert (
+            "0–25" in EVALUATOR_FRAMEWORK_ADDENDUM or "0-25" in EVALUATOR_FRAMEWORK_ADDENDUM
+        ), "QVG rubric weights not found"
         # Check for rubric dimensions
         assert "Moat" in EVALUATOR_FRAMEWORK_ADDENDUM
         assert "Revenue Quality" in EVALUATOR_FRAMEWORK_ADDENDUM or "revenue" in EVALUATOR_FRAMEWORK_ADDENDUM.lower()
@@ -155,9 +147,7 @@ class TestEvaluatorFrameworkAddendum:
         """EVALUATOR_FRAMEWORK_ADDENDUM contains red flags section."""
         assert "RED FLAG" in EVALUATOR_FRAMEWORK_ADDENDUM or "red flag" in EVALUATOR_FRAMEWORK_ADDENDUM.lower()
         # Should have at least 5 red flags (abbreviated from 10)
-        red_flags_section = EVALUATOR_FRAMEWORK_ADDENDUM[
-            EVALUATOR_FRAMEWORK_ADDENDUM.find("RED FLAG") :
-        ]
+        red_flags_section = EVALUATOR_FRAMEWORK_ADDENDUM[EVALUATOR_FRAMEWORK_ADDENDUM.find("RED FLAG") :]
         flag_count = red_flags_section.count("\n")  # Rough count of line breaks in red flags section
         assert flag_count >= 5, "Expected at least 5 red flags in addendum"
 
@@ -166,9 +156,7 @@ class TestEvaluatorFrameworkAddendum:
         """EVALUATOR_FRAMEWORK_ADDENDUM is ~200 tokens (rough estimate)."""
         token_estimate = len(EVALUATOR_FRAMEWORK_ADDENDUM) / 4
         # Allow range: 150-400 tokens (evaluator addendum needs rubric + red flags)
-        assert 150 <= token_estimate <= 400, (
-            f"Token estimate {token_estimate:.0f} outside range [150, 400]"
-        )
+        assert 150 <= token_estimate <= 400, f"Token estimate {token_estimate:.0f} outside range [150, 400]"
 
     @pytest.mark.unit
     def test_evaluator_addendum_contains_scoring_rule(self):
@@ -176,7 +164,9 @@ class TestEvaluatorFrameworkAddendum:
         assert "SCORING RULE" in EVALUATOR_FRAMEWORK_ADDENDUM or "scoring rule" in EVALUATOR_FRAMEWORK_ADDENDUM.lower()
         # Should mention score thresholds
         assert (
-            "40" in EVALUATOR_FRAMEWORK_ADDENDUM or "50" in EVALUATOR_FRAMEWORK_ADDENDUM or "70" in EVALUATOR_FRAMEWORK_ADDENDUM
+            "40" in EVALUATOR_FRAMEWORK_ADDENDUM
+            or "50" in EVALUATOR_FRAMEWORK_ADDENDUM
+            or "70" in EVALUATOR_FRAMEWORK_ADDENDUM
         ), "Quality score thresholds not found"
 
 
@@ -200,9 +190,7 @@ class TestFrameworkConsistency:
         """Evaluator addendum focuses on rubric and red flags (subset of card topics)."""
         card_mentions_rubric = "QUALITY SCORING RUBRIC" in FRAMEWORK_CARD or "0–25" in FRAMEWORK_CARD
         addendum_mentions_rubric = "0–25" in EVALUATOR_FRAMEWORK_ADDENDUM or "0-25" in EVALUATOR_FRAMEWORK_ADDENDUM
-        assert card_mentions_rubric and addendum_mentions_rubric, (
-            "Both should address QVG rubric"
-        )
+        assert card_mentions_rubric and addendum_mentions_rubric, "Both should address QVG rubric"
 
     @pytest.mark.unit
     def test_red_flag_consistency(self):
