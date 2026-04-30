@@ -124,8 +124,14 @@ def build_dynamic_suffix(
 
     parts.append(f"## Task\n{sprint_prompt}\n\n")
 
+    field_types = schema.get("field_types", {})
+
     parts.append("## Output Contract\n")
     parts.append(f"Required fields: {', '.join(required)}\n")
+    if field_types:
+        parts.append("Field types (STRICT — wrong types will fail validation):\n")
+        for field, ftype in field_types.items():
+            parts.append(f"- {field}: {ftype}\n")
     if enums:
         for field, allowed in enums.items():
             parts.append(f"- {field}: must be from {allowed}\n")
@@ -136,6 +142,7 @@ def build_dynamic_suffix(
         for field, min_len in str_mins.items():
             parts.append(f"- {field}: minimum {min_len} characters\n")
     parts.append("- No null values. Use \"unknown\" if data is unavailable.\n")
+    parts.append("- No nested objects unless field type specifies it. Use flat strings.\n")
     parts.append("- No empty strings in arrays.\n\n")
 
     if prior_outputs:

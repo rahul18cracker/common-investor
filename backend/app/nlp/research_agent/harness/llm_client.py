@@ -8,14 +8,33 @@ blocks on the static prefix.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import anthropic
+import httpx
 
 MODEL_MAP = {
     "haiku": "claude-haiku-4-5-20251001",
-    "sonnet": "claude-sonnet-4-6-20250514",
-    "opus": "claude-opus-4-7-20250506",
+    "sonnet": "claude-sonnet-4-6",
+    "opus": "claude-opus-4-7",
 }
+
+_SSL_CERT_CANDIDATES = [
+    "/opt/homebrew/etc/openssl@3/cert.pem",
+    "/usr/local/etc/openssl@3/cert.pem",
+    "/etc/ssl/certs/ca-certificates.crt",
+]
+
+
+def _resolve_ssl_cert() -> str | None:
+    """Find a usable SSL cert bundle for corporate proxy environments."""
+    env_cert = os.environ.get("SSL_CERT_FILE")
+    if env_cert and Path(env_cert).exists():
+        return env_cert
+    for candidate in _SSL_CERT_CANDIDATES:
+        if Path(candidate).exists():
+            return candidate
+    return None
 
 
 class AnthropicLLMClient:
@@ -29,9 +48,16 @@ class AnthropicLLMClient:
     ):
         self.model_id = MODEL_MAP.get(model, model)
         self.max_tokens = max_tokens
-        self.client = anthropic.Anthropic(
-            api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"),
-        )
+        self._api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+
+        ssl_cert = _resolve_ssl_cert()
+        if ssl_cert:
+            http_client = httpx.Client(verify=ssl_cert)
+            self.client = anthropic.Anthropic(
+                api_key=self._api_key, http_client=http_client,
+            )
+        else:
+            self.client = anthropic.Anthropic(api_key=self._api_key)
         self.last_usage: dict[str, int] = {}
 
     def __call__(self, system_prompt: str, user_prompt: str, static_context: str | None = None) -> str:
@@ -68,9 +94,8 @@ class AnthropicLLMClient:
 
     def with_model(self, model: str) -> "AnthropicLLMClient":
         """Return a new client instance with a different model tier."""
-        new_client = AnthropicLLMClient(
+        return AnthropicLLMClient(
             model=model,
-            api_key=self.client.api_key,
+            api_key=self._api_key,
             max_tokens=self.max_tokens,
         )
-        return new_client

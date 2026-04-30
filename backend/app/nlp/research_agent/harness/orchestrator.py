@@ -19,6 +19,7 @@ from app.nlp.research_agent.harness.cost_tracker import (
 )
 from app.nlp.research_agent.harness.evaluator import evaluate
 from app.nlp.research_agent.harness.state_manager import (
+    CONTRACTS_DIR,
     SPRINT_NAMES,
     StateManager,
 )
@@ -266,6 +267,15 @@ def run_all_sprints(
     run_start = time.time()
 
     for sprint_name in sprints_to_run:
+        # Check contract exists (sprints without contracts are future increments)
+        contract_path = CONTRACTS_DIR / f"{sprint_name}.json"
+        if not contract_path.exists():
+            logger.info("Sprint %s skipped: no contract file", sprint_name)
+            state.update_sprint_in_manifest(sprint_name, {
+                "status": "no_contract",
+            })
+            continue
+
         # Per-sprint data readiness gate
         readiness = check_sprint_readiness(sprint_name, sanitized_bundle, sanitized_item1)
         if not readiness.ready:

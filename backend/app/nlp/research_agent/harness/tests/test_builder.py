@@ -59,8 +59,8 @@ class TestBuildStaticPrefix:
 
     def test_contains_section_headers(self):
         prefix = build_static_prefix(SAMPLE_BUNDLE, SAMPLE_ITEM1)
-        assert "Quantitative Data" in prefix
-        assert "Item 1" in prefix
+        assert "<financial_data>" in prefix
+        assert "<item1_text>" in prefix
 
 
 # --- build_dynamic_suffix ---
@@ -186,15 +186,15 @@ class TestSprintPrompts:
 # --- build() ---
 
 
-def _mock_llm_good(system_prompt: str, user_prompt: str) -> str:
+def _mock_llm_good(system_prompt: str, user_prompt: str, **kwargs) -> str:
     return GOOD_JSON_RESPONSE
 
 
-def _mock_llm_bad_json(system_prompt: str, user_prompt: str) -> str:
+def _mock_llm_bad_json(system_prompt: str, user_prompt: str, **kwargs) -> str:
     return "This is not JSON at all, sorry."
 
 
-def _mock_llm_error(system_prompt: str, user_prompt: str) -> str:
+def _mock_llm_error(system_prompt: str, user_prompt: str, **kwargs) -> str:
     raise RuntimeError("Connection timeout")
 
 

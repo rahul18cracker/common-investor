@@ -72,7 +72,7 @@ class DataFetcher:
             response = client.post(url)
             response.raise_for_status()
             data = response.json()
-            return data["text"]
+            return data.get("item1_excerpt") or data.get("text") or ""
 
     def fetch_all(self, ticker: str) -> FetchResult:
         """Fetch both agent bundle and Item 1 text, capturing all errors.

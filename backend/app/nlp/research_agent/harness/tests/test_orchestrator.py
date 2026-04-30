@@ -16,17 +16,23 @@ from app.nlp.research_agent.harness.state_manager import StateManager
 # --- Fixtures ---
 
 SAMPLE_AGENT_BUNDLE = {
-    "company": {"ticker": "AAPL", "name": "Apple Inc"},
+    "company": {"cik": "0000320193", "ticker": "AAPL", "name": "Apple Inc"},
     "metrics": {
         "growths_extended": {"rev_cagr_5y": 0.08},
         "roic_avg_10y": 0.25,
+        "latest_operating_margin": 0.30,
+        "latest_fcf_margin": 0.26,
     },
     "timeseries": {
         "is": [{"fiscal_year": 2023, "revenue": 383000000000}],
     },
 }
 
-SAMPLE_ITEM1 = "Apple Inc. designs, manufactures, and markets smartphones."
+SAMPLE_ITEM1 = (
+    "Apple Inc. designs, manufactures, and markets smartphones, personal computers, "
+    "tablets, wearables, and accessories worldwide. The Company also sells various "
+    "related services including subscriptions and support."
+)
 
 GOOD_BUILDER_OUTPUT = {
     "ticker": "AAPL",
@@ -60,7 +66,7 @@ def _make_builder_llm(output=None, fail_first_n=0):
     call_count = [0]
     response = output or GOOD_BUILDER_OUTPUT
 
-    def mock_llm(system_prompt: str, user_prompt: str) -> str:
+    def mock_llm(system_prompt: str, user_prompt: str, **kwargs) -> str:
         call_count[0] += 1
         if call_count[0] <= fail_first_n:
             return "not valid json"
@@ -74,7 +80,7 @@ def _make_evaluator_llm(pass_eval=True):
     """Create a mock evaluator LLM that returns pass/fail scores."""
     score = 4 if pass_eval else 1
 
-    def mock_llm(system_prompt: str, user_prompt: str) -> str:
+    def mock_llm(system_prompt: str, user_prompt: str, **kwargs) -> str:
         return json.dumps({
             "evidence_quality": {"score": score, "notes": "test"},
             "completeness": {"score": score, "notes": "test"},
