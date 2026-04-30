@@ -1,0 +1,154 @@
+{
+  "sprint": "08_thesis",
+  "version": "1.0",
+  "model_tier": "sonnet",
+  "max_retries": 2,
+  "timeout_seconds": 180,
+  "eval_timeout_seconds": 60,
+  "dependencies": ["01_business_profile", "02_unit_economics", "03_industry", "04_moat", "05_management", "06_peers", "07_risks"],
+
+  "output_schema": {
+    "required_fields": [
+      "stance", "quality_score_0_to_100", "confidence", "key_points", "falsifiers", "time_horizon_months"
+    ],
+    "field_types": {
+      "stance": "string",
+      "quality_score_0_to_100": "integer",
+      "confidence": "string",
+      "key_points": "array[string]",
+      "falsifiers": "string",
+      "time_horizon_months": "integer"
+    },
+    "no_nulls": true,
+    "no_empty_strings_in_arrays": true,
+    "array_minimums": {
+      "key_points": 3
+    },
+    "enums": {
+      "stance": ["buy", "hold", "avoid"],
+      "confidence": ["low", "moderate", "high"]
+    },
+    "string_minimums": {
+      "falsifiers": 50
+    }
+  },
+
+  "cross_references": [
+    {
+      "check": "stance_consistency_with_quality_score",
+      "rule": "stance must align with quality_score: buy (score>=70), hold (score 50-69), avoid (score<50)",
+      "source": "output.quality_score_0_to_100",
+      "target": "output.stance",
+      "match": "exact"
+    },
+    {
+      "check": "moat_constraint_on_buy",
+      "rule": "if stance=buy, prior_outputs.04_moat.durability_rating_0_to_5 must be >= 3 (decent moat required)",
+      "source": "prior_outputs.04_moat.durability_rating_0_to_5",
+      "target": "output.stance",
+      "match": "threshold_consistency"
+    }
+  ],
+
+  "grounding_checks": [
+    {
+      "id": "stance_buy_requires_high_quality",
+      "description": "Buy stance requires quality_score >= 65 (high conviction threshold) and prior moat durability >= 3",
+      "claim_source": "output.stance",
+      "verify_against": ["output.quality_score_0_to_100", "prior_outputs.04_moat.durability_rating_0_to_5"],
+      "contradiction_rule": "stance='buy' AND (quality_score < 65 OR durability_rating < 3)",
+      "severity": "hard"
+    },
+    {
+      "id": "stance_avoid_requires_low_quality_or_weak_moat",
+      "description": "Avoid stance should align with either low quality score (<50) or weak moat (<=1) or high risk score (>=4)",
+      "claim_source": "output.stance",
+      "verify_against": ["output.quality_score_0_to_100", "prior_outputs.04_moat.durability_rating_0_to_5", "prior_outputs.07_risks.risk_rating_0_to_5"],
+      "contradiction_rule": "stance='avoid' AND (quality_score >= 50 AND durability_rating >= 2 AND risk_rating < 4)",
+      "severity": "soft"
+    },
+    {
+      "id": "quality_score_component_sum",
+      "description": "quality_score_0_to_100 should decompose into six components (moat_durability 0-25, revenue_quality 0-15, pricing_power 0-15, industry_structure 0-15, management_allocation 0-20, balance_sheet 0-10) that sum to output score",
+      "claim_source": "output.quality_score_0_to_100",
+      "verify_against": "output",
+      "contradiction_rule": "quality_score component breakdown is missing or does not aggregate correctly",
+      "severity": "hard"
+    },
+    {
+      "id": "moat_component_anchors_quality",
+      "description": "Moat component (0-25) should not exceed prior_outputs.04_moat.durability_rating_0_to_5 * 5; quality_score should not exceed prior_outputs.04_moat.durability_rating_0_to_5 * 10 + 45",
+      "claim_source": "output.quality_score_0_to_100",
+      "verify_against": "prior_outputs.04_moat.durability_rating_0_to_5",
+      "contradiction_rule": "quality_score > (prior_outputs.04_moat.durability_rating_0_to_5 * 10 + 45)",
+      "severity": "hard"
+    },
+    {
+      "id": "management_component_from_prior_sprint",
+      "description": "Management allocation component should be anchored to prior_outputs.05_management.rating_0_to_5 * 4 (0-20 scale)",
+      "claim_source": "output.quality_score_0_to_100",
+      "verify_against": "prior_outputs.05_management.rating_0_to_5",
+      "contradiction_rule": "management component appears disconnected from prior sprint rating",
+      "severity": "soft"
+    },
+    {
+      "id": "falsifiers_specificity_enforced",
+      "description": "falsifiers field must contain at least one specific, testable falsifier (length >= 50 chars, not generic)",
+      "claim_source": "output.falsifiers",
+      "verify_against": "output.falsifiers",
+      "contradiction_rule": "falsifiers.length < 50 OR falsifiers is generic/vague",
+      "severity": "hard"
+    },
+    {
+      "id": "key_points_grounded_in_priors",
+      "description": "key_points array should reference evidence from prior sprints (business model, unit economics, industry, moat, management, risks, peers)",
+      "claim_source": "output.key_points",
+      "verify_against": ["prior_outputs.01_business_profile", "prior_outputs.02_unit_economics", "prior_outputs.03_industry", "prior_outputs.04_moat", "prior_outputs.05_management", "prior_outputs.07_risks"],
+      "contradiction_rule": "key_points are original claims not grounded in prior sprint evidence",
+      "severity": "soft"
+    }
+  ],
+
+  "llm_eval_criteria": {
+    "synthesis_quality": {
+      "weight": 7,
+      "prompt": "Does the thesis coherently synthesize all 7 prior sprints into a unified investment recommendation? Does it explain WHY the company is buy/hold/avoid, tying moat durability, management quality, balance sheet resilience, industry structure, and valuation together? Or does it feel like disconnected fragments?",
+      "score_5": "Seamless synthesis; each component clearly contributes to final stance; reader understands the core thesis",
+      "score_3": "Mostly synthesized; 1-2 components feel disconnected or underweighted",
+      "score_1": "Disjointed; reads like independent conclusions with weak connecting logic"
+    },
+    "quality_score_calibration": {
+      "weight": 5,
+      "prompt": "Is the 0-100 quality_score realistically calibrated and explicitly decomposed into the six weighted components (moat 25%, revenue quality 15%, pricing power 15%, industry structure 15%, management 20%, balance sheet 10%)? Does the arithmetic make sense and reflect the actual strength demonstrated across prior sprints?",
+      "score_5": "Decomposition fully transparent; arithmetic correct; calibration realistic per evidence",
+      "score_3": "Mostly correct; 1-2 component allocations seem off or decomposition is vague",
+      "score_1": "Missing decomposition, arithmetic errors, or score wildly misaligned with evidence"
+    },
+    "falsifiers_quality": {
+      "weight": 5,
+      "prompt": "Are the falsifiers (thesis-breaking events) specific, testable, and material? Or are they vague and generic? Could an investor actually monitor whether these events occur?",
+      "score_5": "3+ specific falsifiers with clear trigger conditions; investor can measure them",
+      "score_3": "1-2 falsifiers present; mostly specific but 1 is somewhat vague",
+      "score_1": "Falsifiers missing, generic, or untestable"
+    },
+    "consistency_with_prior_sprints": {
+      "weight": 3,
+      "prompt": "Does the thesis contradict any findings from the 7 prior sprints? Are references to moat durability, management rating, industry verdict, risk score, or peer positioning accurate?",
+      "score_5": "Zero contradictions; all references to prior sprints are accurate",
+      "score_3": "Minor inaccuracy (1 misquote or slight mischaracterization)",
+      "score_1": "Clear contradictions or material misrepresentations of prior findings"
+    }
+  },
+
+  "pass_threshold": {
+    "deterministic_checks": "all_pass",
+    "grounding_hard": "zero_contradictions",
+    "grounding_soft": "flag_only",
+    "llm_score_minimum": 14,
+    "llm_score_maximum": 20
+  },
+
+  "framework_focus": "Apply Rule #1 Four Ms + QVG lens to synthesize all 7 prior sprints. Quality_score_0_to_100 must explicitly decompose into six anchored components: Moat & Durability (0-25, = durability_rating * 5), Revenue Quality (0-15, from business_profile recurrence + unit_economics), Pricing Power (0-15, anchored to pricing_power_score * 15), Industry Structure (0-15, from industry verdict: good=12-15, neutral=7-11, poor=0-6), Management & Allocation (0-20, = management_rating * 4), Balance Sheet Resilience (0-10, = balance_sheet_score * 2). Stance thresholds: buy (score>=70 AND moat>=3 AND management>=3), hold (score 50-69), avoid (score<50 OR moat<=1 OR risk>=4). Time horizon reflects business durability (shorter for commodities, longer for network-effect platforms). Falsifiers are thesis-breaking events with clear trigger conditions. The 14/20 LLM threshold is the highest of any sprint and reflects synthesis cognitive load — incoherent thesis failures are not recoverable downstream.",
+
+  "notes": "08_thesis is the synthesis sprint — it depends on all 7 prior sprints and produces the final investment recommendation. It uses Claude Sonnet (not Haiku) due to the synthesis cognitive load. The quality_score_0_to_100 must decompose explicitly into six weighted components: Moat & Durability (0-25, anchored to 04_moat.durability_rating * 5), Revenue Quality (0-15, from business_profile recurrence + unit_economics), Pricing Power (0-15, anchored to quality_scores.pricing_power_score * 15), Industry Structure (0-15, anchored to 03_industry.verdict: good=12-15, neutral=7-11, poor=0-6), Management & Allocation (0-20, anchored to 05_management.rating_0_to_5 * 4), Balance Sheet Resilience (0-10, anchored to four_ms.balance_sheet * 2). Stance thresholds: buy (score>=70 AND moat>=3 AND management>=3), hold (score 50-69), avoid (score<50 OR moat<=1). The 14/20 LLM threshold is the highest of any sprint and reflects the synthesis nature of this output — incoherent thesis failures are not recoverable downstream."
+}

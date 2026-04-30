@@ -1,0 +1,171 @@
+{
+  "sprint": "03_industry",
+  "version": "1.0",
+  "model_tier": "haiku",
+  "max_retries": 2,
+  "timeout_seconds": 120,
+  "eval_timeout_seconds": 30,
+  "dependencies": ["01_business_profile", "02_unit_economics"],
+
+  "output_schema": {
+    "required_fields": [
+      "sic_code", "industry_category", "definition",
+      "concentration", "pricing_power", "supplier_power", "customer_power", "substitution_threat", "regulation",
+      "cyclicality", "peer_candidates",
+      "verdict", "notes"
+    ],
+    "field_types": {
+      "sic_code": "string",
+      "industry_category": "string",
+      "definition": "string",
+      "concentration": "string",
+      "pricing_power": "string",
+      "supplier_power": "string",
+      "customer_power": "string",
+      "substitution_threat": "string",
+      "regulation": "string",
+      "cyclicality": "string",
+      "peer_candidates": "array[string]",
+      "verdict": "string",
+      "notes": "string"
+    },
+    "no_nulls": true,
+    "no_empty_strings_in_arrays": true,
+    "array_minimums": {
+      "peer_candidates": 3
+    },
+    "enums": {
+      "concentration": ["concentrated", "moderate", "fragmented"],
+      "pricing_power": ["strong", "moderate", "weak"],
+      "supplier_power": ["weak", "moderate", "strong"],
+      "customer_power": ["weak", "moderate", "strong"],
+      "substitution_threat": ["low", "moderate", "high"],
+      "regulation": ["minimal", "moderate", "heavy"],
+      "cyclicality": ["low", "moderate", "high"],
+      "verdict": ["good", "neutral", "poor"]
+    },
+    "string_minimums": {
+      "definition": 150,
+      "notes": 200
+    }
+  },
+
+  "cross_references": [
+    {
+      "check": "industry_grounding",
+      "rule": "output.definition should reflect the competitive forces in agent_bundle.company.industry_category",
+      "source": "agent_bundle.company.industry_category",
+      "target": "output.definition",
+      "match": "substring_either_direction"
+    },
+    {
+      "check": "company_context",
+      "rule": "output.notes should reference or acknowledge the company by name from agent_bundle",
+      "source": "agent_bundle.company.name",
+      "target": "output.notes",
+      "match": "substring_either_direction"
+    }
+  ],
+
+  "grounding_checks": [
+    {
+      "id": "cyclicality_energy_retail_consistency",
+      "description": "Energy and retail industries are typically cyclical; flag if cyclicality is marked 'low'",
+      "claim_source": "output.cyclicality",
+      "verify_against": "agent_bundle.company.industry_category",
+      "contradiction_rule": "cyclicality == 'low' AND industry_category IN ['energy', 'retail']",
+      "severity": "hard"
+    },
+    {
+      "id": "verdict_growth_alignment",
+      "description": "If verdict is 'good', revenue 5-year CAGR should not be strongly negative (< -5%)",
+      "claim_source": "output.verdict",
+      "verify_against": "agent_bundle.metrics.growths_extended.rev_cagr_5y",
+      "contradiction_rule": "verdict == 'good' AND rev_cagr_5y < -0.05",
+      "severity": "hard"
+    },
+    {
+      "id": "verdict_poor_cyclicality_alignment",
+      "description": "If verdict is 'poor' AND cyclicality is 'low', flag for review (low cyclicality can reflect secular decline, which is valid for poor verdict; this is informational)",
+      "claim_source": "output.verdict",
+      "verify_against": "output.cyclicality",
+      "contradiction_rule": "verdict == 'poor' AND cyclicality == 'low'",
+      "severity": "soft"
+    },
+    {
+      "id": "pricing_model_consistency",
+      "description": "If pricing_power is 'weak' but prior_outputs.01_business_profile.pricing_model includes subscription or contracts, flag for review",
+      "claim_source": "output.pricing_power",
+      "verify_against": "prior_outputs.01_business_profile.pricing_model",
+      "contradiction_rule": "pricing_power == 'weak' AND prior_outputs pricing_model contains 'subscription' or 'contracts'",
+      "severity": "soft"
+    },
+    {
+      "id": "definition_references_industry_context",
+      "description": "Industry definition should reference specific structural forces (concentration, pricing power, regulation, cyclicality), not generic boilerplate",
+      "claim_source": "output.definition",
+      "verify_against": "output.concentration, output.pricing_power, output.regulation, output.cyclicality",
+      "contradiction_rule": "definition_length > 150 AND (no_structural_force_keywords OR only_generic_porters_language)",
+      "severity": "soft"
+    },
+    {
+      "id": "concentration_supplier_power_alignment",
+      "description": "High concentration typically coexists with strong supplier power; flag for review if both present",
+      "claim_source": "output.concentration",
+      "verify_against": "output.supplier_power",
+      "contradiction_rule": "concentration == 'concentrated' AND supplier_power == 'high'",
+      "severity": "soft"
+    },
+    {
+      "id": "industry_notes_alignment",
+      "description": "Industry characterization should align with agent_bundle.company.industry_notes guidance",
+      "claim_source": "output.notes",
+      "verify_against": "agent_bundle.company.industry_notes",
+      "contradiction_rule": "industry_notes present AND output.verdict contradicts known category patterns (e.g., utilities marked 'good' when industry_notes warn of regulatory headwinds)",
+      "severity": "soft"
+    }
+  ],
+
+  "llm_eval_criteria": {
+    "evidence_quality": {
+      "weight": 6,
+      "prompt": "Are competitive forces (concentration, pricing power, regulation, cyclicality) grounded in specific industry dynamics and data — not vague Porter's Five Forces templates?",
+      "score_5": "Every force tied to a specific structural dynamic (e.g., 'energy is cyclical due to commodity price swings')",
+      "score_3": "Most forces specific, 1-2 generic",
+      "score_1": "Mostly template language with no concrete reasoning"
+    },
+    "completeness": {
+      "weight": 4,
+      "prompt": "Are all six competitive forces (concentration, pricing power, supplier/customer power, substitution, regulation, cyclicality) covered? Are peer candidates real and named?",
+      "score_5": "All forces assessed, 3+ named public peers identified",
+      "score_3": "Most forces covered, peers partially named or generic",
+      "score_1": "Major forces omitted or no credible peer candidates"
+    },
+    "consistency": {
+      "weight": 5,
+      "prompt": "Do the verdict ('good'/'neutral'/'poor'), structured fields (concentration, pricing_power, cyclicality), and notes form a coherent narrative? Any contradictions?",
+      "score_5": "Verdict logically follows from the forces; narrative explains the judgment",
+      "score_3": "Minor misalignment (e.g., 'good' verdict with high cyclicality but acknowledged)",
+      "score_1": "Verdict contradicts the evidence presented"
+    },
+    "red_flags": {
+      "weight": 5,
+      "prompt": "Is the output free of hallucinated peers, unverifiable structural claims, and generic analyst speak? Does it reflect specific knowledge of this industry?",
+      "score_5": "Clean, specific, peer names are real companies in the same competitive set",
+      "score_3": "1 minor issue (peer not in exact category, or one unverifiable claim)",
+      "score_1": "Multiple hallucinated peers or facts not traceable to industry research"
+    }
+  },
+
+  "pass_threshold": {
+    "deterministic_checks": "all_pass",
+    "grounding_hard": "zero_contradictions",
+    "grounding_soft": "flag_only",
+    "llm_score_minimum": 12,
+    "llm_score_maximum": 20
+  },
+
+  "framework_focus": "Characterize the competitive forces shaping this industry's structural economics (not the company's position within it — that is moat analysis). Use SIC code and industry_category from agent_bundle to anchor the definition. Assess concentration, pricing power, customer/supplier bargaining power, substitution threat, regulation, and cyclicality. Identify 3+ named public company peers in the same competitive set. Deliver a verdict on industry attractiveness: 'good' = structural tailwinds, pricing power, low cyclicality; 'neutral' = mixed or cyclical but viable; 'poor' = commoditized, high cyclicality, or structural headwinds. Industry verdict feeds the thesis quality score.",
+
+  "notes": "Sprint 03 grounds the company in its industry context before moat analysis. The agent must cite specific competitive dynamics tied to the company's SIC code and industry_category — not generic Porter's Five Forces boilerplate. Peer candidates are deterministic (min 3) and must be real, named companies. Cyclicality is assessed against industry_category to catch mislabeled outputs. The verdict is a directional quality signal that feeds thesis synthesis. Grounding checks catch cyclicality/verdict mismatch with known industry patterns. String minimums enforce substantive responses (definition >= 150 chars, notes >= 200 chars)."
+}

@@ -1,0 +1,234 @@
+{
+  "sprint": "06_peers",
+  "version": "1.0",
+  "model_tier": "haiku",
+  "max_retries": 2,
+  "timeout_seconds": 120,
+  "eval_timeout_seconds": 30,
+  "dependencies": [
+    "01_business_profile",
+    "02_unit_economics",
+    "03_industry"
+  ],
+  "output_schema": {
+    "required_fields": [
+      "subject",
+      "subject_scores",
+      "peers"
+    ],
+    "field_types": {
+      "subject": "string",
+      "subject_scores": "object",
+      "peers": "array[object]"
+    },
+    "no_nulls": true,
+    "no_empty_strings_in_arrays": false,
+    "array_minimums": {
+      "peers": 3
+    },
+    "enums": {
+      "subject_scores.pricing_power_0_to_5": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "subject_scores.recurrence_0_to_5": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "subject_scores.roic_persistence_0_to_5": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "subject_scores.balance_sheet_0_to_5": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "subject_scores.management_0_to_5": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "subject_scores.industry_positioning_0_to_5": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "subject_scores.valuation_flex_0_to_5": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "string_minimums": {}
+  },
+  "cross_references": [
+    {
+      "check": "subject_match",
+      "rule": "output.subject must equal agent_bundle.company.ticker",
+      "source": "output.subject",
+      "target": "agent_bundle.company.ticker",
+      "match": "case_insensitive_exact"
+    },
+    {
+      "check": "peers_from_industry_sprint",
+      "rule": "at least 2 peers must come from prior_outputs.03_industry.peer_candidates (enforcement via grounding check)",
+      "source": "output.peers[].name",
+      "target": "prior_outputs.03_industry.peer_candidates",
+      "match": "substring_either_direction"
+    }
+  ],
+  "grounding_checks": [
+    {
+      "id": "subject_roic_score_grounded",
+      "severity": "hard",
+      "description": "subject_scores.roic_persistence_0_to_5 must be within 1 point of agent_bundle.quality_scores.roic_persistence",
+      "claim_source": "output.subject_scores.roic_persistence_0_to_5",
+      "verify_against": "agent_bundle.quality_scores.roic_persistence",
+      "contradiction_rule": "abs(output_value - agent_bundle.quality_scores.roic_persistence * 5) > 1"
+    },
+    {
+      "id": "subject_balance_sheet_grounded",
+      "severity": "hard",
+      "description": "subject_scores.balance_sheet_0_to_5 must be within 1 point of agent_bundle.four_ms.balance_sheet * 5",
+      "claim_source": "output.subject_scores.balance_sheet_0_to_5",
+      "verify_against": "agent_bundle.four_ms.balance_sheet",
+      "contradiction_rule": "abs(output_value - agent_bundle.four_ms.balance_sheet * 5) > 1"
+    },
+    {
+      "id": "subject_management_score_grounded",
+      "severity": "hard",
+      "description": "subject_scores.management_0_to_5 must be within 1 point of agent_bundle.four_ms.management * 5",
+      "claim_source": "output.subject_scores.management_0_to_5",
+      "verify_against": "agent_bundle.four_ms.management",
+      "contradiction_rule": "abs(output_value - agent_bundle.four_ms.management * 5) > 1"
+    },
+    {
+      "id": "subject_pricing_power_grounded",
+      "severity": "hard",
+      "description": "subject_scores.pricing_power_0_to_5 must be within 1 point of agent_bundle.quality_scores.pricing_power_score * 5",
+      "claim_source": "output.subject_scores.pricing_power_0_to_5",
+      "verify_against": "agent_bundle.quality_scores.pricing_power_score",
+      "contradiction_rule": "abs(output_value - agent_bundle.quality_scores.pricing_power_score * 5) > 1"
+    },
+    {
+      "id": "no_duplicate_peers",
+      "severity": "hard",
+      "description": "All peer names must be distinct \u2014 no peer company should appear twice",
+      "claim_source": "output.peers",
+      "verify_against": "output.peers",
+      "contradiction_rule": "duplicate peer names found in output.peers[].name"
+    },
+    {
+      "id": "subject_not_in_peers",
+      "severity": "hard",
+      "description": "The subject company ticker or name must not appear in the peers list",
+      "claim_source": "output.peers",
+      "verify_against": "agent_bundle.company.ticker",
+      "contradiction_rule": "output.peers[].name contains agent_bundle.company.ticker or agent_bundle.company.name"
+    },
+    {
+      "id": "peers_include_industry_candidates",
+      "severity": "hard",
+      "description": "At least 2 of the named peers must appear in prior_outputs.03_industry.peer_candidates",
+      "claim_source": "output.peers",
+      "verify_against": "prior_outputs.03_industry.peer_candidates",
+      "contradiction_rule": "count of output.peers[].name values that match any entry in prior_outputs.03_industry.peer_candidates < 2"
+    },
+    {
+      "id": "subject_scores_commentary_length",
+      "severity": "hard",
+      "description": "subject_scores.commentary must be at least 100 characters",
+      "claim_source": "output.subject_scores.commentary",
+      "verify_against": "output.subject_scores.commentary",
+      "contradiction_rule": "subject_scores.commentary length < 100"
+    },
+    {
+      "id": "peer_commentary_length",
+      "severity": "hard",
+      "description": "Each peer commentary must be at least 100 characters",
+      "claim_source": "output.peers[].commentary",
+      "verify_against": "output.peers[].commentary",
+      "contradiction_rule": "any peer.commentary length < 100"
+    },
+    {
+      "id": "subject_roic_vs_peers_check",
+      "severity": "soft",
+      "description": "Subject ROIC persistence should not be significantly below peer average",
+      "claim_source": "output.subject_scores.roic_persistence_0_to_5",
+      "verify_against": "output.peers[].roic_persistence_0_to_5",
+      "contradiction_rule": "subject_roic score < (peer average roic score - 2)"
+    },
+    {
+      "id": "subject_balance_sheet_vs_peers_check",
+      "severity": "soft",
+      "description": "Subject balance sheet should not be significantly below peer average",
+      "claim_source": "output.subject_scores.balance_sheet_0_to_5",
+      "verify_against": "output.peers[].balance_sheet_0_to_5",
+      "contradiction_rule": "subject_balance_sheet score < (peer average balance_sheet score - 2)"
+    }
+  ],
+  "llm_eval_criteria": {
+    "peer_validity": {
+      "weight": 6,
+      "prompt": "Are all peers real, named public companies in the same competitive set as the subject? Do at least 2-3 come from prior_outputs.03_industry.peer_candidates? Is the subject company absent from the peer list?",
+      "score_5": "All 3+ peers are real, named competitors in the same industry; 2+ from industry sprint; no hallucinations; subject absent",
+      "score_3": "2-3 real competitors; 1 from industry sprint; no obvious hallucinations",
+      "score_1": "Hallucinated, tangential, or non-existent companies; or subject appears in peer list"
+    },
+    "scoring_calibration": {
+      "weight": 5,
+      "prompt": "Are subject_scores anchored to agent_bundle data (roic_persistence, balance_sheet, management, pricing_power)? Are peer scores internally consistent (the more moated company scores higher on roic_persistence; stronger balance sheet scores higher on balance_sheet_strength)?",
+      "score_5": "Subject scores match agent_bundle within tolerance; peer rankings are internally consistent and defensible",
+      "score_3": "Subject scores mostly aligned; 1-2 peer scores slightly miscalibrated but within range",
+      "score_1": "Subject scores wildly off from agent_bundle; peer scores appear random or inverted"
+    },
+    "comparative_insight": {
+      "weight": 5,
+      "prompt": "Does each peer's commentary identify 1-2 decisive competitive differences vs the subject? Does the scorecard reveal where the subject leads and where it lags \u2014 not just a list of scores?",
+      "score_5": "Each peer has specific comparative commentary citing actual competitive advantages/disadvantages; subject positioning is explicit",
+      "score_3": "Most peers have substantive commentary; 1 is generic; subject positioning partially clear",
+      "score_1": "Generic commentary that could apply to any company; no specific competitive differentiation; unclear why scores differ"
+    },
+    "red_flags": {
+      "weight": 4,
+      "prompt": "Any signs of score inflation (everyone 4-5), score deflation (everyone 1-2), generic commentary, or subject scores that misrepresent agent_bundle data?",
+      "score_5": "Score distribution is realistic (not all 4-5); commentary is specific; no inflation or deflation pattern",
+      "score_3": "Minor scoring narrowness (e.g., 3-4 range) or 1 generic comment; grounding clear",
+      "score_1": "Widespread inflation, deflation, or all commentary is generic placeholder text"
+    }
+  },
+  "framework_focus": "Compare the subject company against 3+ named peers from prior_outputs.03_industry.peer_candidates on 7 QVG-aligned criteria: pricing_power, recurrence, roic_persistence, balance_sheet, management, industry_positioning, valuation_flex (0-5 each). Include subject_scores using the same 7 criteria \u2014 anchor subject's roic_persistence, balance_sheet, management, and pricing_power scores to agent_bundle data. Peer scores are qualitative estimates from general knowledge; this data limitation must be acknowledged. The comparison reveals relative positioning: where the subject leads peers (potential moat) and where it lags (risk or improvement area). Avoid score inflation \u2014 real competitive differentiation means scores should vary meaningfully across the 7 dimensions.",
+  "notes": "06_peers extends the spec schema (qualitative-analysis-v2.md \u00a78.6) by adding subject_scores alongside the peer array. This is intentional: the thesis sprint needs subject vs peer comparison in a single structured output. Subject scores for roic_persistence, balance_sheet, management, and pricing_power are grounded in agent_bundle and verified by hard grounding checks (within \u00b11 tolerance). Peer scores are qualitative estimates \u2014 no peer quantitative data is available in agent_bundle. Item 1 text is not used in this sprint (data_validator.py item1_text: false for 06_peers). Peer candidates must come from prior_outputs.03_industry.peer_candidates to prevent hallucination.",
+  "pass_threshold": {
+    "deterministic_checks": "all_pass",
+    "grounding_hard": "zero_contradictions",
+    "grounding_soft": "flag_only",
+    "llm_score_minimum": 12,
+    "llm_score_maximum": 20
+  }
+}

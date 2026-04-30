@@ -1,0 +1,208 @@
+{
+  "sprint": "04_moat",
+  "version": "1.0",
+  "model_tier": "haiku",
+  "max_retries": 2,
+  "timeout_seconds": 120,
+  "eval_timeout_seconds": 30,
+  "dependencies": ["01_business_profile", "02_unit_economics", "03_industry"],
+
+  "output_schema": {
+    "required_fields": [
+      "switching_costs", "network_effects", "scale_or_cost_advantage",
+      "brand", "regulatory_assets", "durability_rating_0_to_5", "notes"
+    ],
+    "field_types": {
+      "switching_costs": "object",
+      "network_effects": "object",
+      "scale_or_cost_advantage": "object",
+      "brand": "object",
+      "regulatory_assets": "object",
+      "durability_rating_0_to_5": "integer",
+      "notes": "string"
+    },
+    "no_nulls": true,
+    "no_empty_strings_in_arrays": true,
+    "enums": {
+      "network_effects": ["none", "direct", "indirect"]
+    },
+    "string_minimums": {
+      "notes": 50
+    }
+  },
+
+  "cross_references": [
+    {
+      "check": "durability_vs_moat_score_consistency",
+      "rule": "durability_rating_0_to_5 should reflect true moat strength (0-5 maps: 0=no moat, 1=weak, 2=okay, 3=good, 4=strong, 5=fortress) and correlate with ROIC and margin persistence in prior sprints",
+      "source": "prior_outputs.02_unit_economics",
+      "target": "output.durability_rating_0_to_5",
+      "match": "ordinal_consistency"
+    },
+    {
+      "check": "strong_moat_claim_vs_roic",
+      "rule": "if durability_rating >= 4, ROIC should be elevated (>15%) and ROIC persistence score from prior sprints should support sustained competitive advantage",
+      "source": "agent_bundle.metrics.roic",
+      "target": "output.durability_rating_0_to_5",
+      "match": "threshold_consistency"
+    }
+  ],
+
+  "grounding_checks": [
+    {
+      "id": "nested_fields_not_null",
+      "description": "All five moat source objects (switching_costs, network_effects, scale_or_cost_advantage, brand, regulatory_assets) must have non-null present and evidence fields",
+      "claim_source": "output",
+      "verify_against": "output.[switching_costs,network_effects,scale_or_cost_advantage,brand,regulatory_assets]",
+      "contradiction_rule": "any_of(switching_costs.present, network_effects.present, scale_or_cost_advantage.present, brand.present, regulatory_assets.present) is null OR any_of(...evidence) is null",
+      "severity": "hard"
+    },
+    {
+      "id": "network_effects_type_consistency",
+      "description": "If network_effects.present=true, type must not be 'none'; if present=false, type must be 'none'",
+      "claim_source": "output.network_effects",
+      "verify_against": "output.network_effects.type",
+      "contradiction_rule": "(present=true AND type='none') OR (present=false AND type!='none')",
+      "severity": "hard"
+    },
+    {
+      "id": "switching_costs_evidence_length",
+      "description": "If switching_costs.present=true, evidence length must be >= 50 characters",
+      "claim_source": "output.switching_costs.present",
+      "verify_against": "output.switching_costs.evidence",
+      "contradiction_rule": "present=true AND evidence.length < 50",
+      "severity": "hard"
+    },
+    {
+      "id": "network_effects_evidence_length",
+      "description": "If network_effects.present=true, evidence length must be >= 50 characters",
+      "claim_source": "output.network_effects.present",
+      "verify_against": "output.network_effects.evidence",
+      "contradiction_rule": "present=true AND evidence.length < 50",
+      "severity": "hard"
+    },
+    {
+      "id": "scale_evidence_length",
+      "description": "If scale_or_cost_advantage.present=true, evidence length must be >= 50 characters",
+      "claim_source": "output.scale_or_cost_advantage.present",
+      "verify_against": "output.scale_or_cost_advantage.evidence",
+      "contradiction_rule": "present=true AND evidence.length < 50",
+      "severity": "hard"
+    },
+    {
+      "id": "brand_evidence_length",
+      "description": "If brand.present=true, evidence length must be >= 50 characters",
+      "claim_source": "output.brand.present",
+      "verify_against": "output.brand.evidence",
+      "contradiction_rule": "present=true AND evidence.length < 50",
+      "severity": "hard"
+    },
+    {
+      "id": "regulatory_evidence_length",
+      "description": "If regulatory_assets.present=true, evidence length must be >= 50 characters",
+      "claim_source": "output.regulatory_assets.present",
+      "verify_against": "output.regulatory_assets.evidence",
+      "contradiction_rule": "present=true AND evidence.length < 50",
+      "severity": "hard"
+    },
+    {
+      "id": "durability_rating_in_range",
+      "description": "durability_rating_0_to_5 must be between 0 and 5 (inclusive)",
+      "claim_source": "output.durability_rating_0_to_5",
+      "verify_against": "output.durability_rating_0_to_5",
+      "contradiction_rule": "value < 0 OR value > 5",
+      "severity": "hard"
+    },
+    {
+      "id": "roic_persistence_supports_durability",
+      "description": "If durability >= 3, roic_persistence from agent-bundle should be >= 2 (moat requires sustained returns)",
+      "claim_source": "output.durability_rating_0_to_5",
+      "verify_against": "agent_bundle.metrics.roic_persistence",
+      "contradiction_rule": "durability >= 3 AND roic_persistence < 2",
+      "severity": "hard"
+    },
+    {
+      "id": "roic_persistence_high_durability",
+      "description": "If durability >= 4, roic_persistence should be >= 4 (fortress moat requires very strong evidence of sustained competitive advantage)",
+      "claim_source": "output.durability_rating_0_to_5",
+      "verify_against": "agent_bundle.metrics.roic_persistence",
+      "contradiction_rule": "durability >= 4 AND roic_persistence < 4",
+      "severity": "hard"
+    },
+    {
+      "id": "gross_margin_trend_supports_brand_or_scale",
+      "description": "If brand.present=true or scale_or_cost_advantage.present=true, gross_margin_trend from agent-bundle should not be 'declining' (price power or efficiency should show in margins)",
+      "claim_source": "output.[brand,scale_or_cost_advantage]",
+      "verify_against": "agent_bundle.quality_scores.gross_margin_trend",
+      "contradiction_rule": "(brand.present=true OR scale_or_cost_advantage.present=true) AND gross_margin_trend='declining'",
+      "severity": "soft"
+    },
+    {
+      "id": "pricing_power_score_supports_brand",
+      "description": "If brand.present=true, pricing_power_score from agent-bundle should be > 0.4 (strong brand should show pricing power)",
+      "claim_source": "output.brand.present",
+      "verify_against": "agent_bundle.metrics.pricing_power_score",
+      "contradiction_rule": "brand.present=true AND pricing_power_score <= 0.4",
+      "severity": "soft"
+    },
+    {
+      "id": "unit_economics_consistency_with_moat",
+      "description": "If any moat source is claimed as present, prior sprint unit_economics output should reflect defensible unit economics (consistent margin drivers)",
+      "claim_source": "output.[switching_costs,network_effects,scale_or_cost_advantage,brand,regulatory_assets]",
+      "verify_against": "prior_outputs.02_unit_economics",
+      "contradiction_rule": "any_moat_present=true AND unit_economics output is contradictory or vague",
+      "severity": "soft"
+    },
+    {
+      "id": "regulatory_assets_require_evidence",
+      "description": "If regulatory_assets.present=true, evidence must name specific licenses, permits, or regulatory barriers (not vague)",
+      "claim_source": "output.regulatory_assets.present",
+      "verify_against": "output.regulatory_assets.evidence",
+      "contradiction_rule": "present=true AND evidence does not name specific regulatory asset",
+      "severity": "hard"
+    }
+  ],
+
+  "llm_eval_criteria": {
+    "evidence_quality": {
+      "weight": 6,
+      "prompt": "Are the five moat mechanisms (switching costs, network effects, scale/cost advantage, brand, regulatory/toll bridge) grounded in specific mechanisms, with clear links to ROIC persistence or gross margin stability? Does the evidence cite actual competitive barriers, not generic features?",
+      "score_5": "All five moat types assessed with specific mechanisms tied to financial evidence (ROIC/margin/pricing power)",
+      "score_3": "Most moat types specific, 1-2 vague or unsupported by financial data",
+      "score_1": "Mostly generic moat descriptions without financial grounding or mechanisms unclear"
+    },
+    "completeness": {
+      "weight": 4,
+      "prompt": "Are all five Rule #1 moat categories (switching costs, network effects, scale/cost advantage, brand, regulatory/toll bridge) evaluated, even if some are marked absent? Is durability rating justified by the evidence presented?",
+      "score_5": "All five categories assessed; durability rating clearly justified",
+      "score_3": "Four of five assessed or rating partially justified",
+      "score_1": "Fewer than four categories assessed or rating unjustified"
+    },
+    "durability_realism": {
+      "weight": 5,
+      "prompt": "Does the 0-5 durability rating reflect QVG methodology and calibrate realistically to the actual moat strength demonstrated? Is it consistent with ROIC persistence, gross margin trends, and competitive positioning from prior sprints?",
+      "score_5": "Rating aligns perfectly with evidence; consistent with prior sprint data; believable per QVG framework",
+      "score_3": "Rating mostly justified; 1-2 minor calibration concerns",
+      "score_1": "Rating inflated/deflated vs evidence; contradicts prior data; implausible"
+    },
+    "red_flags": {
+      "weight": 5,
+      "prompt": "Is the output free of hallucinations, unsupported claims, and contradictions with prior sprints (unit_economics, industry)? Does moat assessment avoid marketing language and read like analyst research?",
+      "score_5": "Clean, no hallucinations; fully grounded; consistent with prior sprints",
+      "score_3": "1 minor issue (slight overstatement or unverifiable detail)",
+      "score_1": "Contradicts prior data, contains fabricated moats, or marketing copy"
+    }
+  },
+
+  "pass_threshold": {
+    "deterministic_checks": "all_pass",
+    "grounding_hard": "zero_contradictions",
+    "grounding_soft": "flag_only",
+    "llm_score_minimum": 12,
+    "llm_score_maximum": 20
+  },
+
+  "framework_focus": "Apply Rule #1 Five Moat Types (switching costs, network effects, scale/cost advantage, brand, regulatory/toll bridge). Evidence must link to ROIC persistence, gross margin stability, or specific competitive barriers. Rate durability 0-5 per QVG methodology — this score feeds the thesis sprint's quality_score_0_to_100 (moat is 25% of total quality score). Moat is the most analytically important sprint because it determines whether returns are sustainable.",
+
+  "notes": "Moat sprint is highest-leverage for qualitative analysis. The durability rating (0-5) directly feeds thesis quality scoring and determines investment thesis feasibility. All moat claims must be mechanistically specific and grounded in financial persistence metrics from prior sprints. QVG framework prioritizes moat quality as proxy for competitive durability."
+}

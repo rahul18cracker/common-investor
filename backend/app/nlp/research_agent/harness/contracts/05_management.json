@@ -1,0 +1,161 @@
+{
+  "sprint": "05_management",
+  "version": "1.0",
+  "model_tier": "haiku",
+  "max_retries": 2,
+  "timeout_seconds": 180,
+  "eval_timeout_seconds": 60,
+  "dependencies": [
+    "01_business_profile",
+    "02_unit_economics"
+  ],
+  "output_schema": {
+    "required_fields": [
+      "capital_allocation_style",
+      "track_record_examples",
+      "incentives_alignment",
+      "governance_highlights",
+      "transparency_notes",
+      "rating_0_to_5"
+    ],
+    "field_types": {
+      "capital_allocation_style": "string",
+      "track_record_examples": "array[string]",
+      "incentives_alignment": "string",
+      "governance_highlights": "string",
+      "transparency_notes": "string",
+      "rating_0_to_5": "integer"
+    },
+    "no_nulls": true,
+    "no_empty_strings_in_arrays": true,
+    "array_minimums": {
+      "track_record_examples": 2
+    },
+    "enums": {
+      "capital_allocation_style": [
+        "compounder",
+        "returner",
+        "acquirer",
+        "mixed"
+      ],
+      "rating_0_to_5": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "string_minimums": {
+      "incentives_alignment": 100,
+      "governance_highlights": 100,
+      "transparency_notes": 100
+    }
+  },
+  "cross_references": [
+    {
+      "check": "management_score_directional",
+      "rule": "four_ms.management * 5 should be within 1.5 points of output.rating_0_to_5",
+      "source": "agent_bundle.four_ms.management",
+      "target": "output.rating_0_to_5",
+      "match": "directional_within_1.5"
+    },
+    {
+      "check": "allocation_style_share_trend_coherence",
+      "rule": "capital_allocation_style must cohere with share_count_trend: returner expects stable or returning shares",
+      "source": "agent_bundle.quality_scores.share_count_trend",
+      "target": "output.capital_allocation_style",
+      "match": "semantic_coherence"
+    }
+  ],
+  "grounding_checks": [
+    {
+      "id": "no_high_rating_with_dilution",
+      "description": "Management rated 4+ but share count is diluting \u2014 Rule #1 penalizes shareholder dilution",
+      "claim_source": "output.rating_0_to_5",
+      "verify_against": "agent_bundle.quality_scores.share_count_trend",
+      "contradiction_rule": "output.rating_0_to_5 >= 4 AND agent_bundle.quality_scores.share_count_trend == 'diluting'",
+      "severity": "hard"
+    },
+    {
+      "id": "compounder_requires_high_roic",
+      "description": "capital_allocation_style is 'compounder' but 5-year ROIC is below 10% \u2014 compounders must reinvest at high ROIC",
+      "claim_source": "output.capital_allocation_style",
+      "verify_against": "agent_bundle.metrics.roic_avg_5y",
+      "contradiction_rule": "output.capital_allocation_style == 'compounder' AND agent_bundle.metrics.roic_avg_5y < 0.10",
+      "severity": "hard"
+    },
+    {
+      "id": "management_score_consistency",
+      "description": "Quantitative four_ms.management and qualitative rating_0_to_5 deviate significantly (>1.5 points on 0-5 scale)",
+      "claim_source": "output.rating_0_to_5",
+      "verify_against": "agent_bundle.four_ms.management",
+      "contradiction_rule": "abs(agent_bundle.four_ms.management * 5 - output.rating_0_to_5) > 1.5",
+      "severity": "soft"
+    },
+    {
+      "id": "high_payout_without_returner_style",
+      "description": "Payout ratio is >80% but capital_allocation_style is not 'returner'",
+      "claim_source": "output.capital_allocation_style",
+      "verify_against": "agent_bundle.quality_scores.payout_ratio",
+      "contradiction_rule": "agent_bundle.quality_scores.payout_ratio > 0.8 AND output.capital_allocation_style != 'returner'",
+      "severity": "soft"
+    },
+    {
+      "id": "high_reinvestment_with_low_roic",
+      "description": "High reinvestment ratio (>70%) with 'compounder' style but ROIC is modest \u2014 risk of empire building",
+      "claim_source": "output.capital_allocation_style",
+      "verify_against": "agent_bundle.quality_scores.reinvestment_ratio",
+      "contradiction_rule": "agent_bundle.quality_scores.reinvestment_ratio > 0.7 AND output.capital_allocation_style == 'compounder' AND agent_bundle.metrics.roic_avg_5y < 0.12",
+      "severity": "soft"
+    },
+    {
+      "id": "perfect_score_requires_strong_evidence",
+      "description": "Rating of 5/5 is rare and requires both strong quantitative management score and multiple track record examples",
+      "claim_source": "output.rating_0_to_5",
+      "verify_against": "agent_bundle.four_ms.management",
+      "contradiction_rule": "output.rating_0_to_5 == 5 AND agent_bundle.four_ms.management < 0.85",
+      "severity": "hard"
+    }
+  ],
+  "llm_eval_criteria": {
+    "evidence_quality": {
+      "weight": 7,
+      "prompt": "Do track_record_examples cite specific, named capital allocation decisions (e.g., 'Acquired X for $Y in YYYY', 'Repurchased 15M shares at $Z avg in FY2024', 'Maintained CapEx/CFO at 0.45 vs industry avg 0.65')? Vague statements like 'management is disciplined' without facts score 1.",
+      "score_5": "3+ specific, named decisions with quantified outcomes; each links directly to capital allocation discipline or shareholder return",
+      "score_3": "2 specific examples with outcomes; 1 vague or unquantified",
+      "score_1": "Generic statements only; no named decisions; reads like a press release"
+    },
+    "completeness": {
+      "weight": 4,
+      "prompt": "Does output cover all required dimensions: capital allocation style rationale, 2+ specific historical decisions, incentive structure, governance, and transparency? Is rating_0_to_5 justified with evidence?",
+      "score_5": "All five dimensions well-developed; rating explicitly tied to evidence; industry context considered",
+      "score_3": "All dimensions present; 1-2 underdeveloped; rating defensible but not tightly argued",
+      "score_1": "2+ dimensions missing or trivially short; rating appears arbitrary"
+    },
+    "consistency": {
+      "weight": 5,
+      "prompt": "Do capital_allocation_style and rating_0_to_5 align with quantitative signals from agent_bundle (share_count_trend, reinvestment_ratio, payout_ratio, roic_avg_5y)? Are divergences from the four_ms.management score explained?",
+      "score_5": "All qualitative judgments align with quantitative signals; any deviations explicitly explained with evidence",
+      "score_3": "Mostly consistent; 1-2 tensions not fully resolved",
+      "score_1": "Multiple contradictions unexplained (e.g., 'compounder' style with sub-10% ROIC, high rating with diluting shares)"
+    },
+    "red_flags": {
+      "weight": 4,
+      "prompt": "Does the analysis flag material management concerns: share dilution without ROIC compensation, empire building (high reinvestment at low ROIC), incentive misalignment, opacity, or governance weaknesses? Are concerns weighted appropriately in the rating?",
+      "score_5": "All material concerns identified and explicitly factored into rating; no free passes",
+      "score_3": "1-2 concerns identified; severity assessed but not quantified",
+      "score_1": "Known red flags (dilution, low ROIC + high reinvestment) ignored; rating appears inflated"
+    }
+  },
+  "pass_threshold": {
+    "deterministic_checks": "all_pass",
+    "grounding_hard": "zero_contradictions",
+    "grounding_soft": "flag_only",
+    "llm_score_minimum": 12,
+    "llm_score_maximum": 20
+  },
+  "framework_focus": "Evaluate capital allocation discipline using Rule #1 and QVG management scoring. Use reinvestment_ratio (sweet spot 0.3-0.7), payout_ratio (sweet spot 0-0.6), and share_count_trend from agent_bundle as grounding signals. A high rating (4-5/5) requires evidence of deploying capital at ROIC > cost of capital OR disciplined return of excess capital to shareholders. Penalize share dilution (share_count_trend='diluting') unless compensated by exceptional ROIC-creating reinvestment. Classify capital_allocation_style (compounder/returner/acquirer/mixed) and ground it in 2+ specific historical decisions.",
+  "notes": "This sprint assesses capital allocation character \u2014 the 'M' for Management in Rule #1's Four Ms. Quantitative proxies (reinvestment_ratio, payout_ratio, share_count_trend, roic_avg_5y) ground the LLM's qualitative narrative. Item 1 text is NOT available for this sprint (data_validator.py SPRINT_DATA_REQUIREMENTS item1_text: false), so grounding is entirely via agent_bundle. IMPORTANT: incentives_alignment is LLM-inferred from general knowledge (compensation structures, proxy statement patterns typical for this company type) \u2014 agent_bundle does not contain proxy statement data. Flag this field as qualitative inference in the output. track_record_examples are prime hallucination targets \u2014 evidence_quality is weighted highest (7/20) to penalize vague or fabricated examples."
+}

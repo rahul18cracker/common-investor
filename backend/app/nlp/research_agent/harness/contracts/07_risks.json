@@ -1,0 +1,182 @@
+{
+  "output_schema": {
+    "field_types": {
+      "concentration": "object (customers: string, suppliers: string, geography: string)",
+      "cyclicality": "string",
+      "regulatory_risk": "string",
+      "fx_commodity_exposure": "string",
+      "technology_disruption": "string",
+      "top_five_risks": "array of strings (ordered by severity, highest-impact first)",
+      "other": "string (catch-all for thesis-breaking risks not in top five)",
+      "monitoring_triggers": "array of objects (each: {description, threshold, action})"
+    },
+    "array_minimums": {
+      "top_five_risks": 5,
+      "monitoring_triggers": 5
+    },
+    "string_minimums": {
+      "concentration.customers": 50,
+      "concentration.suppliers": 50,
+      "concentration.geography": 50,
+      "cyclicality": 100,
+      "regulatory_risk": 100,
+      "fx_commodity_exposure": 100,
+      "technology_disruption": 100
+    },
+    "required_fields": [
+      "concentration",
+      "cyclicality",
+      "regulatory",
+      "fx_commodity",
+      "technology_disruption",
+      "other",
+      "top_five_risks",
+      "monitoring_triggers"
+    ],
+    "no_nulls": true,
+    "no_empty_strings_in_arrays": true,
+    "enums": {}
+  },
+  "grounding_checks": [
+    {
+      "id": "leverage_risk_flagged_when_indicated",
+      "description": "If net_debt is rising and FCF margin is weak (<5%), leverage/refinancing/debt risk must appear in top_five_risks or other",
+      "claim_source": "agent_bundle.timeseries.net_debt",
+      "verify_against": "output.top_five_risks",
+      "contradiction_rule": "net_debt_trend_increasing AND agent_bundle.metrics.latest_fcf_margin < 0.05 AND NOT any_of(top_five_risks contains 'debt' OR 'leverage' OR 'refinancing')",
+      "severity": "hard"
+    },
+    {
+      "id": "concentration_customers_present",
+      "description": "Customer concentration risk must be substantively discussed",
+      "claim_source": "output.concentration",
+      "verify_against": "output.concentration.customers",
+      "contradiction_rule": "concentration.customers is null or empty",
+      "severity": "hard"
+    },
+    {
+      "id": "concentration_suppliers_present",
+      "description": "Supplier concentration risk must be substantively discussed",
+      "claim_source": "output.concentration",
+      "verify_against": "output.concentration.suppliers",
+      "contradiction_rule": "concentration.suppliers is null or empty",
+      "severity": "hard"
+    },
+    {
+      "id": "monitoring_trigger_threshold_present",
+      "description": "Each monitoring trigger object must have a non-null, non-empty threshold field",
+      "claim_source": "output.monitoring_triggers",
+      "verify_against": "output.monitoring_triggers",
+      "contradiction_rule": "any item in monitoring_triggers has threshold == null or threshold == ''",
+      "severity": "hard"
+    },
+    {
+      "id": "monitoring_trigger_threshold_specific",
+      "description": "Monitoring trigger thresholds should be specific and measurable (numeric or event-based), not vague prose like 'watch for deterioration'",
+      "claim_source": "output.monitoring_triggers",
+      "verify_against": "output.monitoring_triggers",
+      "contradiction_rule": "all thresholds are purely descriptive prose with no numeric or binary event criteria",
+      "severity": "soft"
+    },
+    {
+      "id": "weak_moat_disruption_acknowledged",
+      "description": "If moat durability is weak (<=2/5), technology_disruption risk must be substantively discussed and ranked in top five",
+      "claim_source": "prior_outputs.04_moat.durability_rating_0_to_5",
+      "verify_against": "output.technology_disruption",
+      "contradiction_rule": "prior_outputs.04_moat.durability_rating_0_to_5 <= 2 AND (output.technology_disruption is empty OR not in top_five_risks)",
+      "severity": "hard"
+    },
+    {
+      "id": "management_risk_alignment",
+      "description": "If management quality score is poor (<=2/5), capital allocation or execution risk must appear in top_five_risks or other",
+      "claim_source": "agent_bundle.four_ms.management",
+      "verify_against": "output.top_five_risks",
+      "contradiction_rule": "agent_bundle.four_ms.management <= 2 AND NOT any_of(top_five_risks OR output.other contains 'capital allocation' OR 'execution' OR 'management')",
+      "severity": "hard"
+    },
+    {
+      "id": "weak_balance_sheet_risk_flagged",
+      "description": "If four_ms.balance_sheet <= 2 (poor balance sheet), top_five_risks or other must mention debt, solvency, refinancing, or covenant risk",
+      "claim_source": "agent_bundle.four_ms.balance_sheet",
+      "verify_against": "output.top_five_risks",
+      "contradiction_rule": "four_ms.balance_sheet <= 2 AND NOT any_of(top_five_risks OR output.other contains 'debt' OR 'solvency' OR 'leverage' OR 'covenant')",
+      "severity": "hard"
+    },
+    {
+      "id": "roic_persistence_and_cyclicality_alignment",
+      "description": "If roic_persistence is low (<=2), cyclicality discussion must acknowledge earnings volatility or ROIC variability",
+      "claim_source": "agent_bundle.quality_scores.roic_persistence",
+      "verify_against": "output.cyclicality",
+      "contradiction_rule": "roic_persistence <= 2 AND prior_outputs.03_industry.cyclicality == 'high' AND NOT (cyclicality mentions 'earnings volatility' OR 'variability')",
+      "severity": "hard"
+    }
+  ],
+  "cross_references": [
+    {
+      "check": "cyclicality_consistency_with_industry",
+      "rule": "output.cyclicality must align with prior sprint industry findings (high/moderate/low cyclicality)",
+      "source": "prior_outputs.03_industry.cyclicality",
+      "target": "output.cyclicality",
+      "match": "substring_either_direction"
+    },
+    {
+      "check": "industry_cyclicality_in_risks",
+      "rule": "output.cyclicality must contain content referencing the industry cyclicality level from prior sprint",
+      "source": "prior_outputs.03_industry.cyclicality",
+      "target": "output.cyclicality",
+      "match": "substring_either_direction"
+    }
+  ],
+  "llm_eval_criteria": {
+    "evidence_quality": {
+      "weight": 6,
+      "prompt": "Are risks grounded in specific quantitative signals (net_debt trend, FCF margin, ROIC persistence, moat durability, balance sheet score) and prior sprint findings? Do top_five_risks cite actual company-specific vulnerabilities, not generic sector risks like 'competition is a risk'?",
+      "score_5": "Every risk traceable to a specific metric or sprint finding; all five top risks company-specific with named mechanism (e.g., '$X bn debt maturity in FY+2', 'ROIC declining 3 consecutive years')",
+      "score_3": "3-4 of 5 top risks grounded; some generic sector language remains",
+      "score_1": "Mostly generic risks with no quantitative grounding; reads like a sector ETF prospectus"
+    },
+    "completeness": {
+      "weight": 5,
+      "prompt": "All five required risk categories substantive (concentration, cyclicality, regulatory, FX/commodity, technology disruption)? Are there 5-10 monitoring triggers each with specific measurable threshold and action?",
+      "score_5": "All five categories >100 chars, substantive; 5-10 triggers with numeric/event-based thresholds and clear actions",
+      "score_3": "4 of 5 categories substantive, 1 thin; or 5 triggers but some thresholds are vague",
+      "score_1": "< 4 substantive categories or < 5 triggers or all thresholds are prose"
+    },
+    "consistency_with_priors": {
+      "weight": 5,
+      "prompt": "Does risk analysis align with industry findings (cyclicality, concentration, verdict), moat durability, management quality, and balance sheet resilience from prior sprints? Are risks prioritized consistently with sprint findings?",
+      "score_5": "Fully consistent; cyclicality matches industry sprint; moat durability reflected in tech disruption risk weight; management quality reflected in capital allocation risk weight",
+      "score_3": "Mostly consistent; 1 linkage missing or unclear",
+      "score_1": "Contradicts prior findings or ignores them entirely (e.g., rates tech disruption low when moat durability is 1)"
+    },
+    "red_flags": {
+      "weight": 4,
+      "prompt": "Is the output free of hallucinated metrics, implausible risk rankings, and vague monitoring triggers? Are the highest-impact risks listed first in top_five_risks? Does the analysis focus on thesis-breaking risks, not generic industry noise?",
+      "score_5": "Clean, top risks are company-specific and ranked credibly by impact; all triggers measurable; no fabricated data",
+      "score_3": "1 minor issue (slightly generic trigger or ranking questionable)",
+      "score_1": "Multiple vague triggers, generic risks dominating, or ranking clearly inverted"
+    }
+  },
+  "framework_focus": "Identify where and why the investment thesis could break. Anchor risk assessment to specific quantitative signals from agent_bundle (net_debt trend, FCF margin, ROIC persistence, moat durability, balance sheet resilience) and prior sprint findings (industry cyclicality, moat durability, management quality). Assess all five required categories: concentration (customer, supplier, geography), cyclicality, regulatory, FX/commodity, and technology disruption. Each monitoring trigger must have a specific measurable threshold \u2014 not 'watch for deterioration' but e.g., '3-year net debt CAGR > 10%' or 'FCF margin declines >2pp year-on-year'. Rank top_five_risks by severity \u00d7 probability; the highest-impact thesis-breaker must be first. Red flags per Rule #1: customer/supplier concentration >30% without moat, leverage rising + deteriorating margins, share dilution without commensurate growth.",
+  "notes": "07_risks is the final data-driven sprint before thesis synthesis. Hard grounding checks enforce: leverage/debt flagging when debt is rising and FCF margins are weak; moat-disruption consistency (weak moat = material disruption risk must be acknowledged); management risk alignment (poor management rating = capital allocation risk must be named); balance sheet risk flagging when balance_sheet score <= 2. monitoring_triggers are deterministic test vectors for ongoing portfolio monitoring \u2014 each must be measurable and have a clear breach action. The agent must not output generic risk lists; every risk and trigger must trace to agent_bundle signals or prior sprint context.",
+  "sprint": "07_risks",
+  "version": "1.0",
+  "model_tier": "haiku",
+  "max_retries": 2,
+  "timeout_seconds": 120,
+  "eval_timeout_seconds": 30,
+  "dependencies": [
+    "01_business_profile",
+    "02_unit_economics",
+    "03_industry",
+    "04_moat",
+    "05_management"
+  ],
+  "pass_threshold": {
+    "deterministic_checks": "all_pass",
+    "grounding_hard": "zero_contradictions",
+    "grounding_soft": "flag_only",
+    "llm_score_minimum": 12,
+    "llm_score_maximum": 20
+  }
+}
