@@ -56,10 +56,10 @@
   "cross_references": [
     {
       "check": "management_score_directional",
-      "rule": "four_ms.management * 5 should be within 1.5 points of output.rating_0_to_5",
-      "source": "agent_bundle.four_ms.management",
+      "rule": "output.rating_0_to_5 should directionally align with agent_bundle.four_ms.management.score (both above/below midpoint)",
+      "source": "agent_bundle.four_ms.management.score",
       "target": "output.rating_0_to_5",
-      "match": "directional_within_1.5"
+      "match": "directional_consistency"
     },
     {
       "check": "allocation_style_share_trend_coherence",

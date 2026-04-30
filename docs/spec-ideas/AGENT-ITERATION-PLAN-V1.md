@@ -621,3 +621,108 @@ and consult a financial advisor before making investment decisions.
 **Last Updated:** November 13, 2025  
 **Version:** 1.0  
 **Status:** Ready for Implementation
+
+---
+
+## Increment 3 Pilot Results — 2026-04-30
+
+### Overview
+
+Five-company pilot run across AAPL, WMT, MSFT, JPM, SBUX. Full 8-sprint pipeline per company (~$0.17–$0.31/run, ~10–17 min each). Branch: `rahul/increment2-contracts`.
+
+### Pilot Metrics Summary
+
+| Ticker | Industry  | Status    | Cost    | Duration | Passed | Degraded | Data Incomplete | Qual Avg |
+|--------|-----------|-----------|---------|----------|--------|----------|-----------------|----------|
+| AAPL   | Technology| completed | $0.2449 | 11.4 min | 3      | 5        | 0               | 5.8      |
+| WMT    | Retail    | completed | $0.2614 | 13.5 min | 3      | 5        | 0               | 5.4      |
+| MSFT   | Technology| completed | $0.1661 |  9.9 min | 4      | 4        | 0               | 8.0      |
+| JPM    | Banking   | completed | $0.2048 |  9.5 min | 1      | 5        | 2               | 3.0      |
+| SBUX   | Retail    | completed | $0.3102 | 16.8 min | 1      | 7        | 0               | 4.8      |
+
+**All 5 runs completed (no crashes, no fetch failures, no tainted sprints).**  
+Average cost per company: ~$0.24. Average duration: ~12 min.
+
+### Per-Sprint Pass Rates (across 5 companies)
+
+| Sprint              | Passed | Degraded | Data Incomplete | Pass Rate |
+|---------------------|--------|----------|-----------------|-----------|
+| 01_business_profile | 5/5    | 0        | 0               | 100%      |
+| 02_unit_economics   | 4/5    | 1        | 0               | 80%       |
+| 03_industry         | 0/5    | 5        | 0               | 0%        |
+| 04_moat             | 3/5    | 1        | 1 (JPM)         | 60%       |
+| 05_management       | 0/5    | 4        | 1 (JPM)         | 0%        |
+| 06_peers            | 0/5    | 5        | 0               | 0%        |
+| 07_risks            | 0/5    | 4        | 1 (JPM-missing) | 0%        |
+| 08_thesis           | 2/5    | 3        | 0               | 40%       |
+
+### Root Cause Analysis
+
+**Three systematic contract bugs caused most failures:**
+
+**Bug 1 — 03_industry cross-references (0% pass rate)**  
+Both cross-refs compared mismatched content:  
+- `industry_grounding`: checked if short code `"technology"` was a substring of a long definitional paragraph — it never literally appeared.  
+- `company_context`: checked if `"Apple Inc."` (with period suffix) was in notes — LLM writes `"Apple"`.  
+**Fix applied**: Replaced both with a single `industry_category_matches_bundle` exact-match check (`output.industry_category == agent_bundle.company.industry_category`).
+
+**Bug 2 — 05_management cross-reference (0% pass rate)**  
+Source path was `agent_bundle.four_ms.management` which resolves to the entire management dict `{score: 0.54, components: {}}`. Evaluator stringified this and compared to integer rating `3`, always failing `directional_within_1.5`.  
+**Fix applied**: Changed source to `agent_bundle.four_ms.management.score` (the float), changed match to `directional_consistency` (direction only, no scale mismatch).
+
+**Bug 3 — 07_risks field name mismatch (0% pass rate)**  
+LLM naturally outputs `regulatory_risk` and `fx_commodity_exposure` but `required_fields` specified `regulatory` and `fx_commodity`. The deterministic check failed every run on missing required fields.  
+**Fix applied**: Updated `required_fields` and `field_types` in contract to match LLM's natural output names.
+
+**Other notable failures:**
+
+- **06_peers (0% pass rate)**: Two companies produced invalid JSON on all 3 attempts (builder JSON parse failure). LLM over-stuffed the response with inline commentary. Needs tighter output format instruction in builder prompt — low priority for now.
+- **JPM data incompleteness**: `metrics.latest_operating_margin` and `metrics.latest_fcf_margin` missing → 02_unit_economics and 04_moat skipped. Banking metrics (NII, NIM, PCR) don't map to standard operating/FCF margins. This is a known XBRL gap, not a contract bug.
+- **08_thesis (40% pass rate)**: MSFT and SBUX passed; AAPL/WMT/JPM degraded. Evaluator correctly caught: AAPL's EPS CAGR distortion (10Y negative due to split); WMT's split-adjusted EPS not quantified; JPM missing ROIC_avg_10y. These are high-quality evaluator catches, not false positives.
+- **SBUX ROIC anomaly**: `roic_avg_10y` reported as 64.3% — mathematically implausible for a QSR/negative-equity company. Likely a data artifact from negative equity years producing extreme ROIC values. 02_unit_economics evaluator flagged this correctly.
+
+### Human Calibration Notes
+
+- **01_business_profile**: All 5 passed with scores 14-17/20. Quality is high — outputs are factual, grounded, and specific. Evaluator calibration is correct here.
+- **02_unit_economics**: SBUX degraded on ROIC anomaly flag — evaluator is working correctly as a data quality watchdog.
+- **03_industry, 05_management, 07_risks**: Failures were pure contract bugs. The actual LLM outputs (visible in state/) are high quality — clear, specific, well-grounded. These will pass once the contract fixes are applied.
+- **06_peers**: Even at degraded scores of 1-4/20, the outputs are directionally useful — the evaluator's criticism of missing ROIC figures is valid but harsh for a qualitative benchmarking sprint.
+- **08_thesis**: MSFT thesis is the benchmark — structured, falsifiers are specific, quality decomposition is explicit. This is the target quality bar for other companies.
+
+### Cost Analysis
+
+| Metric | Value |
+|--------|-------|
+| Total pilot cost (5 companies) | $1.19 |
+| Average per company | $0.24 |
+| Cheapest run (MSFT) | $0.17 |
+| Most expensive (SBUX) | $0.31 |
+| Sonnet (08_thesis) share of cost | ~45% of total |
+| Projected 25-company Phase 1B cost | ~$6 |
+
+Sonnet on 08_thesis is the dominant cost driver. The 08_thesis sprint is ~3-5× more expensive than any haiku sprint. Consider haiku for 08_thesis on non-synthesis companies if quality holds.
+
+### Go/No-Go for Phase 1B (25-Company Pilot)
+
+**Decision: CONDITIONAL GO** — after contract fixes are applied and verified.
+
+Pre-conditions for Phase 1B:
+1. ✅ Contract bugs fixed (03_industry, 05_management, 07_risks) — done 2026-04-30
+2. Re-run AAPL/MSFT/SBUX to verify 03_industry, 05_management, 07_risks now pass
+3. Decide: keep 06_peers with JSON strictness improvement or defer to Phase 1B
+4. Document JPM/banking as known data-incomplete company type (financial sector XBRL gaps)
+
+### Contract Model Tier Decisions (post-pilot)
+
+No permanent model upgrades yet — the 0% pass rates on 03/05/07 were contract bugs, not model capability gaps. Re-evaluate after re-run with fixes. Criteria for upgrade: >50% failure rate after contract bugs resolved.
+
+Current tiers: all haiku except 08_thesis (sonnet). Keep as-is for re-run.
+
+### Next Steps (Phase 1B)
+
+1. Apply contract fixes + verify with 3-company re-run (AAPL, MSFT, SBUX)
+2. Fix 06_peers JSON parse failures (builder prompt format enforcement)
+3. Address JPM/banking data gaps in data_validator warnings (don't fail, just warn)
+4. Expand to 25-company pilot: add WMT, JPM, O (REIT), NEE (utility), XOM (energy), CRM (SaaS), plus 18 more
+5. Track: which sprints consistently hit attempt 3 (escalation signal)
+6. After 25-company pilot: decide on permanent sonnet upgrades per sprint

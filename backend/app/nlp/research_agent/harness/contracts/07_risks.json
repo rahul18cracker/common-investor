@@ -26,8 +26,8 @@
     "required_fields": [
       "concentration",
       "cyclicality",
-      "regulatory",
-      "fx_commodity",
+      "regulatory_risk",
+      "fx_commodity_exposure",
       "technology_disruption",
       "other",
       "top_five_risks",

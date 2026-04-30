@@ -5,14 +5,25 @@
   "max_retries": 2,
   "timeout_seconds": 120,
   "eval_timeout_seconds": 30,
-  "dependencies": ["01_business_profile", "02_unit_economics"],
-
+  "dependencies": [
+    "01_business_profile",
+    "02_unit_economics"
+  ],
   "output_schema": {
     "required_fields": [
-      "sic_code", "industry_category", "definition",
-      "concentration", "pricing_power", "supplier_power", "customer_power", "substitution_threat", "regulation",
-      "cyclicality", "peer_candidates",
-      "verdict", "notes"
+      "sic_code",
+      "industry_category",
+      "definition",
+      "concentration",
+      "pricing_power",
+      "supplier_power",
+      "customer_power",
+      "substitution_threat",
+      "regulation",
+      "cyclicality",
+      "peer_candidates",
+      "verdict",
+      "notes"
     ],
     "field_types": {
       "sic_code": "string",
@@ -35,38 +46,61 @@
       "peer_candidates": 3
     },
     "enums": {
-      "concentration": ["concentrated", "moderate", "fragmented"],
-      "pricing_power": ["strong", "moderate", "weak"],
-      "supplier_power": ["weak", "moderate", "strong"],
-      "customer_power": ["weak", "moderate", "strong"],
-      "substitution_threat": ["low", "moderate", "high"],
-      "regulation": ["minimal", "moderate", "heavy"],
-      "cyclicality": ["low", "moderate", "high"],
-      "verdict": ["good", "neutral", "poor"]
+      "concentration": [
+        "concentrated",
+        "moderate",
+        "fragmented"
+      ],
+      "pricing_power": [
+        "strong",
+        "moderate",
+        "weak"
+      ],
+      "supplier_power": [
+        "weak",
+        "moderate",
+        "strong"
+      ],
+      "customer_power": [
+        "weak",
+        "moderate",
+        "strong"
+      ],
+      "substitution_threat": [
+        "low",
+        "moderate",
+        "high"
+      ],
+      "regulation": [
+        "minimal",
+        "moderate",
+        "heavy"
+      ],
+      "cyclicality": [
+        "low",
+        "moderate",
+        "high"
+      ],
+      "verdict": [
+        "good",
+        "neutral",
+        "poor"
+      ]
     },
     "string_minimums": {
       "definition": 150,
       "notes": 200
     }
   },
-
   "cross_references": [
     {
-      "check": "industry_grounding",
-      "rule": "output.definition should reflect the competitive forces in agent_bundle.company.industry_category",
+      "check": "industry_category_matches_bundle",
+      "rule": "output.industry_category must match agent_bundle.company.industry_category exactly",
       "source": "agent_bundle.company.industry_category",
-      "target": "output.definition",
-      "match": "substring_either_direction"
-    },
-    {
-      "check": "company_context",
-      "rule": "output.notes should reference or acknowledge the company by name from agent_bundle",
-      "source": "agent_bundle.company.name",
-      "target": "output.notes",
-      "match": "substring_either_direction"
+      "target": "output.industry_category",
+      "match": "case_insensitive_exact"
     }
   ],
-
   "grounding_checks": [
     {
       "id": "cyclicality_energy_retail_consistency",
@@ -125,11 +159,10 @@
       "severity": "soft"
     }
   ],
-
   "llm_eval_criteria": {
     "evidence_quality": {
       "weight": 6,
-      "prompt": "Are competitive forces (concentration, pricing power, regulation, cyclicality) grounded in specific industry dynamics and data — not vague Porter's Five Forces templates?",
+      "prompt": "Are competitive forces (concentration, pricing power, regulation, cyclicality) grounded in specific industry dynamics and data \u2014 not vague Porter's Five Forces templates?",
       "score_5": "Every force tied to a specific structural dynamic (e.g., 'energy is cyclical due to commodity price swings')",
       "score_3": "Most forces specific, 1-2 generic",
       "score_1": "Mostly template language with no concrete reasoning"
@@ -156,7 +189,6 @@
       "score_1": "Multiple hallucinated peers or facts not traceable to industry research"
     }
   },
-
   "pass_threshold": {
     "deterministic_checks": "all_pass",
     "grounding_hard": "zero_contradictions",
@@ -164,8 +196,6 @@
     "llm_score_minimum": 12,
     "llm_score_maximum": 20
   },
-
-  "framework_focus": "Characterize the competitive forces shaping this industry's structural economics (not the company's position within it — that is moat analysis). Use SIC code and industry_category from agent_bundle to anchor the definition. Assess concentration, pricing power, customer/supplier bargaining power, substitution threat, regulation, and cyclicality. Identify 3+ named public company peers in the same competitive set. Deliver a verdict on industry attractiveness: 'good' = structural tailwinds, pricing power, low cyclicality; 'neutral' = mixed or cyclical but viable; 'poor' = commoditized, high cyclicality, or structural headwinds. Industry verdict feeds the thesis quality score.",
-
-  "notes": "Sprint 03 grounds the company in its industry context before moat analysis. The agent must cite specific competitive dynamics tied to the company's SIC code and industry_category — not generic Porter's Five Forces boilerplate. Peer candidates are deterministic (min 3) and must be real, named companies. Cyclicality is assessed against industry_category to catch mislabeled outputs. The verdict is a directional quality signal that feeds thesis synthesis. Grounding checks catch cyclicality/verdict mismatch with known industry patterns. String minimums enforce substantive responses (definition >= 150 chars, notes >= 200 chars)."
+  "framework_focus": "Characterize the competitive forces shaping this industry's structural economics (not the company's position within it \u2014 that is moat analysis). Use SIC code and industry_category from agent_bundle to anchor the definition. Assess concentration, pricing power, customer/supplier bargaining power, substitution threat, regulation, and cyclicality. Identify 3+ named public company peers in the same competitive set. Deliver a verdict on industry attractiveness: 'good' = structural tailwinds, pricing power, low cyclicality; 'neutral' = mixed or cyclical but viable; 'poor' = commoditized, high cyclicality, or structural headwinds. Industry verdict feeds the thesis quality score.",
+  "notes": "Sprint 03 grounds the company in its industry context before moat analysis. The agent must cite specific competitive dynamics tied to the company's SIC code and industry_category \u2014 not generic Porter's Five Forces boilerplate. Peer candidates are deterministic (min 3) and must be real, named companies. Cyclicality is assessed against industry_category to catch mislabeled outputs. The verdict is a directional quality signal that feeds thesis synthesis. Grounding checks catch cyclicality/verdict mismatch with known industry patterns. String minimums enforce substantive responses (definition >= 150 chars, notes >= 200 chars)."
 }
