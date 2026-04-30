@@ -69,6 +69,9 @@ build/
 tmp/
 temp/
 
+# Qualitative agent harness state (LLM outputs)
+backend/app/nlp/research_agent/harness/state/
+
 #IDE Windsurf
 .windsurf/
 .windsurfrules/

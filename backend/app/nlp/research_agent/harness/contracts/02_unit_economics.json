@@ -1,0 +1,74 @@
+{
+  "sprint": "02_unit_economics",
+  "version": "0.1-stub",
+  "model_tier": "haiku",
+  "max_retries": 2,
+  "timeout_seconds": 120,
+  "eval_timeout_seconds": 30,
+  "dependencies": ["01_business_profile"],
+
+  "output_schema": {
+    "required_fields": [
+      "revenue_model", "volume_drivers", "gross_margin_drivers",
+      "key_improvement_lever"
+    ],
+    "field_types": {
+      "revenue_model": "string",
+      "volume_drivers": "array[string]",
+      "gross_margin_drivers": "array[string]",
+      "key_improvement_lever": "string"
+    },
+    "no_nulls": true,
+    "no_empty_strings_in_arrays": true,
+    "array_minimums": {
+      "volume_drivers": 1,
+      "gross_margin_drivers": 1
+    },
+    "enums": {},
+    "string_minimums": {}
+  },
+
+  "cross_references": [],
+  "grounding_checks": [],
+
+  "llm_eval_criteria": {
+    "evidence_quality": {
+      "weight": 5,
+      "prompt": "Are unit economics claims backed by specific figures?",
+      "score_5": "Specific figures throughout",
+      "score_3": "Mostly specific",
+      "score_1": "Vague"
+    },
+    "completeness": {
+      "weight": 5,
+      "prompt": "Coverage of revenue model through FCF?",
+      "score_5": "Full coverage",
+      "score_3": "Partial",
+      "score_1": "Major gaps"
+    },
+    "consistency": {
+      "weight": 5,
+      "prompt": "Internal consistency of cost and margin analysis?",
+      "score_5": "Fully consistent",
+      "score_3": "Minor issues",
+      "score_1": "Contradictions"
+    },
+    "red_flags": {
+      "weight": 5,
+      "prompt": "No fabricated metrics or vague hand-waving?",
+      "score_5": "Clean",
+      "score_3": "Minor issue",
+      "score_1": "Fabricated data"
+    }
+  },
+
+  "pass_threshold": {
+    "deterministic_checks": "all_pass",
+    "grounding_hard": "zero_contradictions",
+    "grounding_soft": "flag_only",
+    "llm_score_minimum": 12,
+    "llm_score_maximum": 20
+  },
+
+  "notes": "STUB contract — minimal schema for pipeline testing. Will be replaced with full co-authored contract before Phase 1B."
+}
