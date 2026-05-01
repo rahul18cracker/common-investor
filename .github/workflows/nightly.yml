@@ -17,13 +17,13 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
     - name: Build backend image
       run: docker build -t ci-backend:scan ./backend
 
     - name: Scan backend image
-      uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
       with:
         image-ref: "ci-backend:scan"
         format: "table"
@@ -35,7 +35,7 @@ jobs:
       run: docker build -t ci-frontend:scan ./ui
 
     - name: Scan frontend image
-      uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
       with:
         image-ref: "ci-frontend:scan"
         format: "table"
@@ -45,14 +45,14 @@ jobs:
         severity: "CRITICAL,HIGH"
 
     - name: Generate backend SBOM
-      uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
       with:
         image-ref: "ci-backend:scan"
         format: "cyclonedx"
         output: "sbom-backend.json"
 
     - name: Upload SBOM
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
       with:
         name: sbom
         path: sbom-backend.json
