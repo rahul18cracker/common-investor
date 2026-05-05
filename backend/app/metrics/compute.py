@@ -227,6 +227,13 @@ def roic_series(cik: str) -> List[Dict]:
             # like SBUX, MCD, LMT) produces meaningless ROIC — emit None
             if inv_cap > 0:
                 roic = nopat / inv_cap
+                # Suppress economically implausible values caused by near-zero
+                # invested capital (equity deeply negative but debt > |equity|,
+                # so inv_cap stays slightly positive). ROIC > 100% never reflects
+                # real operating returns; it is a denominator artifact. Emit None
+                # so roic_average and roic_persistence_score ignore these years.
+                if roic > 1.0:
+                    roic = None
         out.append({"fy": fy, "roic": roic})
     return out
 
@@ -318,6 +325,30 @@ def roic_average(cik: str, years: int = 10) -> Optional[float]:
     if not recent:
         return None
     return float(sum(recent) / len(recent))
+
+
+def roic_suppressed_years(cik: str) -> int:
+    """Return count of years where ROIC was suppressed due to negative-equity artifacts.
+
+    A non-zero value means the company had periods of deeply negative book equity
+    (e.g. debt-funded buyback recapitalization). The LLM agent uses this flag to
+    contextualise ROIC figures and management quality analysis.
+    """
+    suppressed = 0
+    rows = _fetch_cf_bs_for_roic(cik)
+    for r in rows:
+        ebit, taxes, debt, equity, cash = r["ebit"], r["taxes"], r["debt"], r["equity"], r["cash"]
+        if ebit is None or equity is None or debt is None or cash is None:
+            continue
+        inv_cap = equity + debt - cash
+        if inv_cap > 0:
+            tax_rate = None
+            if taxes is not None and ebit != 0:
+                tax_rate = max(0.0, min(0.35, taxes / abs(ebit)))
+            nopat = ebit * (1.0 - (tax_rate if tax_rate is not None else 0.21))
+            if nopat / inv_cap > 1.0:
+                suppressed += 1
+    return suppressed
 
 
 def latest_debt_to_equity(cik: str) -> Optional[float]:

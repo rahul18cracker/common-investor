@@ -30,9 +30,6 @@ from dotenv import load_dotenv
 project_root = Path(__file__).resolve().parents[5]
 load_dotenv(project_root / ".env")
 
-from app.nlp.research_agent.harness.llm_client import AnthropicLLMClient
-from app.nlp.research_agent.harness.orchestrator import run_all_sprints
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -226,6 +223,9 @@ def main():
             "Snapshot can only be used with a single ticker."
         )
         sys.exit(1)
+
+    from app.nlp.research_agent.harness.llm_client import AnthropicLLMClient
+    from app.nlp.research_agent.harness.orchestrator import run_all_sprints
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
