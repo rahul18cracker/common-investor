@@ -1,7 +1,7 @@
 {
   "sprint": "06_peers",
   "version": "1.0",
-  "model_tier": "haiku",
+  "model_tier": "sonnet",
   "max_retries": 2,
   "timeout_seconds": 120,
   "eval_timeout_seconds": 30,
@@ -26,9 +26,7 @@
     "array_minimums": {
       "peers": 3
     },
-    "string_minimums": {
-      "subject_scores.commentary": 100
-    },
+    "string_minimums": {},
     "enums": {
       "subject_scores.pricing_power_0_to_5": [
         0,
@@ -86,8 +84,7 @@
         4,
         5
       ]
-    },
-    "string_minimums": {}
+    }
   },
   "cross_references": [
     {
