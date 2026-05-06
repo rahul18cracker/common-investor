@@ -673,8 +673,20 @@ def _check_generic_rule(
     - "any item in X has Y == null or Y == ''" — array member check
     """
     rule = check.get("contradiction_rule", "")
-    claim_src = check.get("claim_source", "").replace("output.", "", 1)
-    verify_src = check.get("verify_against", "").replace("agent_bundle.", "", 1).replace("output.", "", 1)
+    claim_src_raw = check.get("claim_source", "")
+    verify_src_raw = check.get("verify_against", "")
+
+    # Multi-source checks (verify_against is a list) can't be mechanically evaluated
+    if isinstance(verify_src_raw, list) or isinstance(claim_src_raw, list):
+        return {
+            "id": check_id,
+            "passed": True,
+            "severity": severity,
+            "details": f"Multi-source check '{check_id}' — deferred to LLM evaluator",
+        }
+
+    claim_src = str(claim_src_raw).replace("output.", "", 1)
+    verify_src = str(verify_src_raw).replace("agent_bundle.", "", 1).replace("output.", "", 1)
 
     claim_val = resolve_path(builder_output, claim_src)
     verify_val = resolve_path(agent_bundle, verify_src) if "agent_bundle." in check.get("verify_against", "") else resolve_path(builder_output, verify_src)

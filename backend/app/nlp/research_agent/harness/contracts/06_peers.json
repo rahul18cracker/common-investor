@@ -26,6 +26,9 @@
     "array_minimums": {
       "peers": 3
     },
+    "string_minimums": {
+      "subject_scores.commentary": 100
+    },
     "enums": {
       "subject_scores.pricing_power_0_to_5": [
         0,
