@@ -1,7 +1,5 @@
 """Tests for the grounding module — deterministic claim verification."""
 
-import pytest
-
 from app.nlp.research_agent.harness.grounding import (
     extract_numeric_claims,
     has_claim_signal,

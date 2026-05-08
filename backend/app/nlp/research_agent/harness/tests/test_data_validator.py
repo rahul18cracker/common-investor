@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 
 from app.nlp.research_agent.harness.data_validator import (
-    SprintReadiness,
     check_sprint_readiness,
     validate_agent_bundle,
     validate_item1_text,
@@ -122,7 +121,10 @@ class TestValidateItem1Text:
 
     def test_valid_text_passes(self):
         """Valid text (>= 100 chars, no HTML) passes."""
-        text = "This is a valid text block that contains enough characters to pass the minimum length check. It is over 100 characters."
+        text = (
+            "This is a valid text block that contains enough characters "
+            "to pass the minimum length check. It is over 100 characters."
+        )
         assert validate_item1_text(text) == []
 
     def test_non_string_input(self):

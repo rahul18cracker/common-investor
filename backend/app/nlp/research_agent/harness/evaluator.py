@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 from app.nlp.research_agent.harness.framework_card import EVALUATOR_FRAMEWORK_ADDENDUM
 from app.nlp.research_agent.harness.grounding import (
@@ -219,7 +219,7 @@ def parse_llm_eval_response(raw: str, contract: dict[str, Any]) -> dict[str, Any
     cleaned = raw.strip()
     if cleaned.startswith("```"):
         lines = cleaned.split("\n")
-        lines = [l for l in lines if not l.strip().startswith("```")]
+        lines = [line for line in lines if not line.strip().startswith("```")]
         cleaned = "\n".join(lines)
 
     try:
@@ -299,7 +299,6 @@ def evaluate(
     grounding_result = run_all_grounding_checks(grounding_checks, builder_output, agent_bundle, item1_text)
 
     # Determine if deterministic layers pass
-    threshold = contract.get("pass_threshold", {})
     deterministic_pass = schema_pass and xref_pass
     grounding_pass = grounding_result["pass"]
 

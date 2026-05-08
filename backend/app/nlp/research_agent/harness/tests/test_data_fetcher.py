@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from app.nlp.research_agent.harness.data_fetcher import DataFetcher, FetchResult
+from app.nlp.research_agent.harness.data_fetcher import DataFetcher
 
 
 @pytest.mark.unit

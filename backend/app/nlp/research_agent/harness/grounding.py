@@ -523,7 +523,12 @@ def _check_peers_score_within_tolerance(
                 f"(bundle {bundle_path}={float(bundle_val):.3f} × {bundle_scale}). {description}"
             ),
         }
-    return {"id": check_id, "passed": True, "severity": severity, "details": f"{output_path}={out_f:.1f} within tolerance of {expected:.1f}"}
+    return {
+        "id": check_id,
+        "passed": True,
+        "severity": severity,
+        "details": f"{output_path}={out_f:.1f} within tolerance of {expected:.1f}",
+    }
 
 
 def _check_no_duplicate_peers(
@@ -543,7 +548,12 @@ def _check_no_duplicate_peers(
         seen.add(n)
 
     if dups:
-        return {"id": check_id, "passed": False, "severity": severity, "details": f"Duplicate peer names: {dups}. {description}"}
+        return {
+            "id": check_id,
+            "passed": False,
+            "severity": severity,
+            "details": f"Duplicate peer names: {dups}. {description}",
+        }
     return {"id": check_id, "passed": True, "severity": severity, "details": f"{len(names)} peers, all unique"}
 
 
@@ -614,7 +624,12 @@ def _check_commentary_length(
                 violations.append(f"peers[{i}].commentary is {len(str(commentary))} chars, minimum {min_length}")
 
     if violations:
-        return {"id": check_id, "passed": False, "severity": severity, "details": "; ".join(violations) + f". {description}"}
+        return {
+            "id": check_id,
+            "passed": False,
+            "severity": severity,
+            "details": "; ".join(violations) + f". {description}",
+        }
     return {"id": check_id, "passed": True, "severity": severity, "details": "All commentary meets minimum length"}
 
 
@@ -653,7 +668,12 @@ def _check_subject_vs_peers_relative(
             "severity": severity,
             "details": f"Subject {field}={sub_f:.1f} is >2 below peer avg={avg_peer:.1f}. {description}",
         }
-    return {"id": check_id, "passed": True, "severity": severity, "details": f"Subject {field}={sub_f:.1f} vs peer avg={avg_peer:.1f}"}
+    return {
+        "id": check_id,
+        "passed": True,
+        "severity": severity,
+        "details": f"Subject {field}={sub_f:.1f} vs peer avg={avg_peer:.1f}",
+    }
 
 
 def _check_generic_rule(
@@ -689,13 +709,22 @@ def _check_generic_rule(
     verify_src = str(verify_src_raw).replace("agent_bundle.", "", 1).replace("output.", "", 1)
 
     claim_val = resolve_path(builder_output, claim_src)
-    verify_val = resolve_path(agent_bundle, verify_src) if "agent_bundle." in check.get("verify_against", "") else resolve_path(builder_output, verify_src)
+    verify_val = (
+        resolve_path(agent_bundle, verify_src)
+        if "agent_bundle." in check.get("verify_against", "")
+        else resolve_path(builder_output, verify_src)
+    )
 
     # null/empty check pattern
     if "is null or empty" in rule:
         failed = claim_val is None or (isinstance(claim_val, str) and not claim_val.strip())
         if failed:
-            return {"id": check_id, "passed": False, "severity": severity, "details": f"{claim_src} is null or empty. {description}"}
+            return {
+                "id": check_id,
+                "passed": False,
+                "severity": severity,
+                "details": f"{claim_src} is null or empty. {description}",
+            }
         return {"id": check_id, "passed": True, "severity": severity, "details": f"{claim_src} is present"}
 
     # array item threshold check
@@ -703,16 +732,22 @@ def _check_generic_rule(
         items = claim_val if isinstance(claim_val, list) else []
         bad = [i for i, item in enumerate(items) if isinstance(item, dict) and not item.get("threshold")]
         if bad:
-            return {"id": check_id, "passed": False, "severity": severity, "details": f"Items {bad} have null/empty threshold. {description}"}
+            return {
+                "id": check_id,
+                "passed": False,
+                "severity": severity,
+                "details": f"Items {bad} have null/empty threshold. {description}",
+            }
         return {"id": check_id, "passed": True, "severity": severity, "details": "All thresholds present"}
 
     # numeric comparison with AND conditions
     if claim_val is not None and verify_val is not None and ">=" in rule and "AND" in rule:
         try:
             claim_f = float(claim_val)
-            verify_f = float(verify_val)
+            float(verify_val)
             # Extract the threshold from rule like "output.rating_0_to_5 >= 4 AND ..."
             import re as _re
+
             m = _re.search(r">=\s*([\d.]+)", rule)
             if m:
                 threshold = float(m.group(1))
@@ -724,7 +759,12 @@ def _check_generic_rule(
                         and_val = m2.group(1).strip().rstrip("'\"")
                         verify_str = str(verify_val).strip().strip("'\"")
                         if verify_str == and_val:
-                            return {"id": check_id, "passed": False, "severity": severity, "details": f"Contradiction: {rule}. {description}"}
+                            return {
+                                "id": check_id,
+                                "passed": False,
+                                "severity": severity,
+                                "details": f"Contradiction: {rule}. {description}",
+                            }
         except (TypeError, ValueError, AttributeError):
             pass
 
@@ -734,7 +774,12 @@ def _check_generic_rule(
             lhs = abs(float(claim_val) - float(verify_val) * 5) if verify_val is not None else None
             m = re.search(r">\s*([\d.]+)", rule)
             if lhs is not None and m and lhs > float(m.group(1)):
-                return {"id": check_id, "passed": False, "severity": severity, "details": f"abs deviation {lhs:.2f} > {m.group(1)}. {description}"}
+                return {
+                    "id": check_id,
+                    "passed": False,
+                    "severity": severity,
+                    "details": f"abs deviation {lhs:.2f} > {m.group(1)}. {description}",
+                }
         except (TypeError, ValueError):
             pass
 

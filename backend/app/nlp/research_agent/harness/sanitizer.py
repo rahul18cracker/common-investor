@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 import re
-import string
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -317,7 +316,6 @@ def sanitize_prior_outputs(outputs: dict[str, dict]) -> tuple[dict[str, dict], l
     flagged = []
 
     for sprint_name, sprint_output in outputs.items():
-        path = f"sprint.{sprint_name}"
         sanitized_output, flagged_for_sprint = sanitize_agent_bundle(sprint_output)
         sanitized[sprint_name] = sanitized_output
         flagged.extend(flagged_for_sprint)

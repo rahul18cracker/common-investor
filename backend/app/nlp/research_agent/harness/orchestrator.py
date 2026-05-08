@@ -8,6 +8,7 @@ Enforces budget and timeout guards. Writes all state to disk.
 from __future__ import annotations
 
 import logging
+import shutil
 import time
 from pathlib import Path
 from typing import Any, Callable
@@ -26,7 +27,6 @@ from app.nlp.research_agent.harness.data_validator import (
 from app.nlp.research_agent.harness.evaluator import evaluate
 from app.nlp.research_agent.harness.sanitizer import (
     sanitize_agent_bundle,
-    sanitize_prior_outputs,
     sanitize_text,
 )
 from app.nlp.research_agent.harness.state_manager import (
@@ -414,7 +414,6 @@ def _mark_remaining_skipped(
 
 def _downstream_sprints(start_sprint: str) -> list[str]:
     """Return start_sprint plus all sprints that depend on it (directly or transitively)."""
-    result = []
     start_idx = SPRINT_NAMES.index(start_sprint) if start_sprint in SPRINT_NAMES else -1
     if start_idx == -1:
         return [start_sprint]
@@ -423,8 +422,6 @@ def _downstream_sprints(start_sprint: str) -> list[str]:
 
 def _clear_sprint_artifacts(state: StateManager, sprint_name: str) -> None:
     """Remove builder output, eval result, and traces for a sprint so it re-runs fresh."""
-    import shutil
-
     sprint_dir = state.sprint_dir(sprint_name)
     for filename in ["builder_output.json", "eval_result.json", "builder_trace.json"]:
         artifact = sprint_dir / filename
