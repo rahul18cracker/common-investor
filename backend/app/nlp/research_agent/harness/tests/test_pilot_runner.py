@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -20,7 +19,9 @@ def _sprint(status: str, eval_score: int = 0, contradictions: int = 0) -> dict[s
     return {"status": status, "eval_score": eval_score, "grounding_contradictions": contradictions}
 
 
-def _manifest(sprints: dict[str, Any], status: str = "completed", cost: float = 0.12, duration: float = 120.0) -> dict[str, Any]:
+def _manifest(
+    sprints: dict[str, Any], status: str = "completed", cost: float = 0.12, duration: float = 120.0
+) -> dict[str, Any]:
     return {
         "status": status,
         "total_cost_usd": cost,
@@ -48,10 +49,12 @@ class TestGetIndustry:
 @pytest.mark.unit
 class TestCollectSprintMetrics:
     def test_all_passed(self):
-        manifest = _manifest({
-            "01_business_profile": _sprint("passed", eval_score=14, contradictions=0),
-            "02_unit_economics": _sprint("passed", eval_score=12, contradictions=1),
-        })
+        manifest = _manifest(
+            {
+                "01_business_profile": _sprint("passed", eval_score=14, contradictions=0),
+                "02_unit_economics": _sprint("passed", eval_score=12, contradictions=1),
+            }
+        )
         passed, degraded, incomplete, tainted, quality, groundings = _collect_sprint_metrics(manifest)
         assert passed == 2
         assert degraded == 0
@@ -61,15 +64,17 @@ class TestCollectSprintMetrics:
         assert groundings == 1
 
     def test_mixed_statuses(self):
-        manifest = _manifest({
-            "01_business_profile": _sprint("passed", eval_score=14),
-            "02_unit_economics": _sprint("degraded", eval_score=8),
-            "03_industry": _sprint("data_incomplete"),
-            "04_moat": _sprint("skipped"),
-            "05_management": _sprint("no_contract"),
-            "06_peers": _sprint("tainted_suspicious"),
-            "07_risks": _sprint("tainted_blocked"),
-        })
+        manifest = _manifest(
+            {
+                "01_business_profile": _sprint("passed", eval_score=14),
+                "02_unit_economics": _sprint("degraded", eval_score=8),
+                "03_industry": _sprint("data_incomplete"),
+                "04_moat": _sprint("skipped"),
+                "05_management": _sprint("no_contract"),
+                "06_peers": _sprint("tainted_suspicious"),
+                "07_risks": _sprint("tainted_blocked"),
+            }
+        )
         passed, degraded, incomplete, tainted, quality, groundings = _collect_sprint_metrics(manifest)
         assert passed == 1
         assert degraded == 1
@@ -77,10 +82,12 @@ class TestCollectSprintMetrics:
         assert tainted == 2
 
     def test_skipped_and_no_contract_not_counted(self):
-        manifest = _manifest({
-            "01_business_profile": _sprint("skipped"),
-            "02_unit_economics": _sprint("no_contract"),
-        })
+        manifest = _manifest(
+            {
+                "01_business_profile": _sprint("skipped"),
+                "02_unit_economics": _sprint("no_contract"),
+            }
+        )
         passed, degraded, incomplete, tainted, quality, groundings = _collect_sprint_metrics(manifest)
         assert passed == 0
         assert degraded == 0
@@ -88,29 +95,35 @@ class TestCollectSprintMetrics:
         assert tainted == 0
 
     def test_evidence_quality_only_from_passed_and_degraded(self):
-        manifest = _manifest({
-            "01_business_profile": _sprint("passed", eval_score=16),
-            "02_unit_economics": _sprint("degraded", eval_score=6),
-            "03_industry": _sprint("data_incomplete", eval_score=99),
-            "04_moat": _sprint("skipped", eval_score=99),
-        })
+        manifest = _manifest(
+            {
+                "01_business_profile": _sprint("passed", eval_score=16),
+                "02_unit_economics": _sprint("degraded", eval_score=6),
+                "03_industry": _sprint("data_incomplete", eval_score=99),
+                "04_moat": _sprint("skipped", eval_score=99),
+            }
+        )
         _, _, _, _, quality, _ = _collect_sprint_metrics(manifest)
         assert quality == 11.0
 
     def test_no_passed_or_degraded_returns_zero_quality(self):
-        manifest = _manifest({
-            "01_business_profile": _sprint("data_incomplete"),
-            "02_unit_economics": _sprint("skipped"),
-        })
+        manifest = _manifest(
+            {
+                "01_business_profile": _sprint("data_incomplete"),
+                "02_unit_economics": _sprint("skipped"),
+            }
+        )
         _, _, _, _, quality, _ = _collect_sprint_metrics(manifest)
         assert quality == 0.0
 
     def test_grounding_contradictions_summed(self):
-        manifest = _manifest({
-            "01_business_profile": _sprint("passed", contradictions=2),
-            "02_unit_economics": _sprint("passed", contradictions=1),
-            "03_industry": _sprint("degraded", contradictions=3),
-        })
+        manifest = _manifest(
+            {
+                "01_business_profile": _sprint("passed", contradictions=2),
+                "02_unit_economics": _sprint("passed", contradictions=1),
+                "03_industry": _sprint("degraded", contradictions=3),
+            }
+        )
         _, _, _, _, _, groundings = _collect_sprint_metrics(manifest)
         assert groundings == 6
 
@@ -126,10 +139,14 @@ class TestCollectSprintMetrics:
 @pytest.mark.unit
 class TestBuildCsvRow:
     def test_normal_manifest(self):
-        manifest = _manifest({
-            "01_business_profile": _sprint("passed", eval_score=14),
-            "02_unit_economics": _sprint("passed", eval_score=12),
-        }, cost=0.0235, duration=180.0)
+        manifest = _manifest(
+            {
+                "01_business_profile": _sprint("passed", eval_score=14),
+                "02_unit_economics": _sprint("passed", eval_score=12),
+            },
+            cost=0.0235,
+            duration=180.0,
+        )
         row = _build_csv_row("AAPL", "technology", manifest)
         assert row["ticker"] == "AAPL"
         assert row["industry"] == "technology"
@@ -200,10 +217,20 @@ class TestWriteCsvRow:
 
     def test_overwrites_on_second_call(self, tmp_path):
         csv_path = tmp_path / "pilot_metrics.csv"
-        row1 = {"ticker": "AAPL", "industry": "tech", "status": "completed", "total_cost": 0.1,
-                "duration_min": 1.0, "sprints_passed": 8, "sprints_degraded": 0,
-                "sprints_data_incomplete": 0, "sprints_tainted": 0, "evidence_quality_avg": 13.0,
-                "grounding_contradictions": 0, "cache_hit_rate": 0.0}
+        row1 = {
+            "ticker": "AAPL",
+            "industry": "tech",
+            "status": "completed",
+            "total_cost": 0.1,
+            "duration_min": 1.0,
+            "sprints_passed": 8,
+            "sprints_degraded": 0,
+            "sprints_data_incomplete": 0,
+            "sprints_tainted": 0,
+            "evidence_quality_avg": 13.0,
+            "grounding_contradictions": 0,
+            "cache_hit_rate": 0.0,
+        }
         row2 = {**row1, "ticker": "WMT", "industry": "retail"}
 
         _write_csv_row(csv_path, [row1])

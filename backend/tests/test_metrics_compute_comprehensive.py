@@ -25,7 +25,6 @@ from app.metrics.compute import (
     roic_average,
     roic_persistence_score,
     roic_series,
-    roic_suppressed_years,
     share_count_trend,
     timeseries_all,
 )
@@ -538,7 +537,10 @@ class TestROICSeries:
                 "debt": 14_000_000_000,
                 "equity": -8_000_000_000,
                 "cash": 3_000_000_000,
-                "cfo": None, "capex": None, "shares": None, "revenue": None,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
             },
             {  # Artifact year — inv_cap near-zero → ROIC > 100%
                 "fy": 2022,
@@ -547,7 +549,10 @@ class TestROICSeries:
                 "debt": 14_000_000_000,
                 "equity": -12_000_000_000,
                 "cash": 1_500_000_000,
-                "cfo": None, "capex": None, "shares": None, "revenue": None,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
             },
         ]
 
@@ -575,7 +580,10 @@ class TestROICSuppressedYears:
                 "debt": 50_000_000_000,
                 "equity": 150_000_000_000,
                 "cash": 30_000_000_000,
-                "cfo": None, "capex": None, "shares": None, "revenue": None,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
             }
         ]
 
@@ -588,21 +596,39 @@ class TestROICSuppressedYears:
         mock_fetch.return_value = [
             {  # Valid year
                 "fy": 2021,
-                "ebit": 1_000_000_000, "taxes": 210_000_000,
-                "debt": 14_000_000_000, "equity": -8_000_000_000, "cash": 3_000_000_000,
-                "cfo": None, "capex": None, "shares": None, "revenue": None,
+                "ebit": 1_000_000_000,
+                "taxes": 210_000_000,
+                "debt": 14_000_000_000,
+                "equity": -8_000_000_000,
+                "cash": 3_000_000_000,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
             },
             {  # Artifact year → ROIC > 100%
                 "fy": 2022,
-                "ebit": 1_000_000_000, "taxes": 210_000_000,
-                "debt": 14_000_000_000, "equity": -12_000_000_000, "cash": 1_500_000_000,
-                "cfo": None, "capex": None, "shares": None, "revenue": None,
+                "ebit": 1_000_000_000,
+                "taxes": 210_000_000,
+                "debt": 14_000_000_000,
+                "equity": -12_000_000_000,
+                "cash": 1_500_000_000,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
             },
             {  # Another artifact year
                 "fy": 2023,
-                "ebit": 1_000_000_000, "taxes": 210_000_000,
-                "debt": 14_000_000_000, "equity": -13_000_000_000, "cash": 500_000_000,
-                "cfo": None, "capex": None, "shares": None, "revenue": None,
+                "ebit": 1_000_000_000,
+                "taxes": 210_000_000,
+                "debt": 14_000_000_000,
+                "equity": -13_000_000_000,
+                "cash": 500_000_000,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
             },
         ]
 
@@ -615,9 +641,15 @@ class TestROICSuppressedYears:
         mock_fetch.return_value = [
             {  # Missing equity — skip
                 "fy": 2023,
-                "ebit": 1_000_000_000, "taxes": None,
-                "debt": 14_000_000_000, "equity": None, "cash": 1_500_000_000,
-                "cfo": None, "capex": None, "shares": None, "revenue": None,
+                "ebit": 1_000_000_000,
+                "taxes": None,
+                "debt": 14_000_000_000,
+                "equity": None,
+                "cash": 1_500_000_000,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
             }
         ]
 
@@ -631,9 +663,15 @@ class TestROICSuppressedYears:
         mock_fetch.return_value = [
             {
                 "fy": 2023,
-                "ebit": 1_000_000_000, "taxes": 210_000_000,
-                "debt": 2_000_000_000, "equity": -10_000_000_000, "cash": 1_000_000_000,
-                "cfo": None, "capex": None, "shares": None, "revenue": None,
+                "ebit": 1_000_000_000,
+                "taxes": 210_000_000,
+                "debt": 2_000_000_000,
+                "equity": -10_000_000_000,
+                "cash": 1_000_000_000,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
             }
         ]
         # inv_cap = -10B + 2B - 1B = -9B → negative, skipped
