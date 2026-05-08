@@ -27,9 +27,9 @@ def validate_agent_bundle(bundle: dict) -> list[str]:
         issues.append("company is not a dict")
     else:
         required_company_fields = ["cik", "ticker", "name"]
-        for field in required_company_fields:
-            if field not in company:
-                issues.append(f"Missing company field: {field}")
+        for fname in required_company_fields:
+            if fname not in company:
+                issues.append(f"Missing company field: {fname}")
 
     # Check metrics has growth data
     metrics = bundle.get("metrics", {})

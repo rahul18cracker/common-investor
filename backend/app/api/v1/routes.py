@@ -21,6 +21,7 @@ from app.metrics.compute import (
     roe_series,
     roic_average,
     roic_persistence_score,
+    roic_suppressed_years,
     timeseries_all,
 )
 from app.nlp.fourm.sec_item1 import get_meaning_item1
@@ -311,6 +312,7 @@ def get_agent_bundle(ticker: str):
             "growths": compute_growth_metrics(cik),
             "growths_extended": compute_growth_metrics_extended(cik),
             "roic_avg_10y": roic_average(cik, years=10),
+            "roic_suppressed_years": roic_suppressed_years(cik),
             "debt_to_equity": latest_debt_to_equity(cik),
             "fcf_growth": latest_owner_earnings_growth(cik),
             "revenue_volatility": revenue_volatility(cik),

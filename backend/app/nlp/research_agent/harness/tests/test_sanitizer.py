@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.nlp.research_agent.harness.sanitizer import (
-    SanitizeResult,
     _strip_control_chars,
     _strip_html_tags,
     sanitize_agent_bundle,

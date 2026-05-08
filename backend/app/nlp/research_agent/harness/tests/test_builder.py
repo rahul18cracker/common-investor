@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from app.nlp.research_agent.harness.builder import (
     BUILDER_SYSTEM_PROMPT,
     SPRINT_PROMPTS,

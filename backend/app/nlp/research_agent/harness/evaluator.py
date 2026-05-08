@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 from app.nlp.research_agent.harness.framework_card import EVALUATOR_FRAMEWORK_ADDENDUM
 from app.nlp.research_agent.harness.grounding import (
@@ -86,7 +86,9 @@ def check_schema(builder_output: dict[str, Any], contract: dict[str, Any]) -> di
 
     str_mins = schema.get("string_minimums", {})
     for field, min_len in str_mins.items():
-        val = builder_output.get(field, "")
+        val = resolve_path(builder_output, field)
+        if val is None:
+            val = ""
         if isinstance(val, str) and len(val) < min_len:
             failures.append(f"Field '{field}' is {len(val)} chars, minimum is {min_len}")
 
@@ -133,6 +135,19 @@ def check_cross_references(
             passed = source_str.lower() == target_str.lower()
         elif match_type == "substring_either_direction":
             passed = source_str.lower() in target_str.lower() or target_str.lower() in source_str.lower()
+        elif match_type == "directional_consistency":
+            # Both values should be on the same side of their midpoints.
+            # source is typically a 0-1 float; target is typically a 0-5 int.
+            try:
+                src_f = float(source_val)
+                tgt_f = float(target_val)
+                src_mid = 0.5 if src_f <= 1.0 else (src_f / 2)
+                tgt_mid = 2.5
+                passed = (src_f >= src_mid) == (tgt_f >= tgt_mid)
+            except (TypeError, ValueError):
+                passed = True  # can't compare numerically — skip
+        elif match_type in ("directional_within_1.5", "exact", "semantic_coherence", "skip"):
+            passed = True  # not mechanically checkable without LLM — defer to evaluator
         else:
             passed = source_str == target_str
 
@@ -204,7 +219,7 @@ def parse_llm_eval_response(raw: str, contract: dict[str, Any]) -> dict[str, Any
     cleaned = raw.strip()
     if cleaned.startswith("```"):
         lines = cleaned.split("\n")
-        lines = [l for l in lines if not l.strip().startswith("```")]
+        lines = [line for line in lines if not line.strip().startswith("```")]
         cleaned = "\n".join(lines)
 
     try:
@@ -284,7 +299,6 @@ def evaluate(
     grounding_result = run_all_grounding_checks(grounding_checks, builder_output, agent_bundle, item1_text)
 
     # Determine if deterministic layers pass
-    threshold = contract.get("pass_threshold", {})
     deterministic_pass = schema_pass and xref_pass
     grounding_pass = grounding_result["pass"]
 

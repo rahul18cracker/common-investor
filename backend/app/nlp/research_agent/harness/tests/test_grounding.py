@@ -1,7 +1,5 @@
 """Tests for the grounding module — deterministic claim verification."""
 
-import pytest
-
 from app.nlp.research_agent.harness.grounding import (
     extract_numeric_claims,
     has_claim_signal,
@@ -350,6 +348,162 @@ class TestUnknownCheckId:
         result = run_grounding_check(check, {}, {})
         assert result["passed"]
         assert "skipped" in result["details"].lower()
+
+
+# --- 06_peers grounding checks ---
+
+
+class TestPeersScoreWithinTolerance:
+    def _bundle(self, roic_persistence=0.8, management_score=0.6):
+        return {
+            "quality_scores": {"roic_persistence": roic_persistence, "pricing_power_score": 0.7},
+            "four_ms": {
+                "management": {"score": management_score},
+                "balance_sheet_resilience": {"score": 3.0},
+            },
+        }
+
+    def test_roic_score_within_tolerance(self):
+        # bundle roic_persistence=0.8, × 5 = 4.0; output = 4 → within ±1
+        check = {"id": "subject_roic_score_grounded", "severity": "hard"}
+        output = {"subject_scores": {"roic_persistence_0_to_5": 4}}
+        result = run_grounding_check(check, output, self._bundle())
+        assert result["passed"]
+
+    def test_roic_score_out_of_tolerance(self):
+        # bundle roic_persistence=0.8, × 5 = 4.0; output = 1 → deviation 3 > 1
+        check = {"id": "subject_roic_score_grounded", "severity": "hard"}
+        output = {"subject_scores": {"roic_persistence_0_to_5": 1}}
+        result = run_grounding_check(check, output, self._bundle())
+        assert not result["passed"]
+
+    def test_management_score_within_tolerance(self):
+        # bundle management.score=0.6, × 5 = 3.0; output = 3 → within ±1
+        check = {"id": "subject_management_score_grounded", "severity": "hard"}
+        output = {"subject_scores": {"management_0_to_5": 3}}
+        result = run_grounding_check(check, output, self._bundle())
+        assert result["passed"]
+
+    def test_missing_output_value_skipped(self):
+        check = {"id": "subject_roic_score_grounded", "severity": "hard"}
+        result = run_grounding_check(check, {}, self._bundle())
+        assert result["passed"]
+        assert "skipped" in result["details"].lower()
+
+    def test_missing_bundle_value_skipped(self):
+        check = {"id": "subject_roic_score_grounded", "severity": "hard"}
+        output = {"subject_scores": {"roic_persistence_0_to_5": 4}}
+        result = run_grounding_check(check, output, {})
+        assert result["passed"]
+        assert "skipped" in result["details"].lower()
+
+
+class TestNoDuplicatePeers:
+    def test_no_duplicates_passes(self):
+        check = {"id": "no_duplicate_peers", "severity": "hard"}
+        output = {"peers": [{"name": "Microsoft"}, {"name": "Alphabet"}, {"name": "Samsung"}]}
+        result = run_grounding_check(check, output, {})
+        assert result["passed"]
+
+    def test_duplicate_fails(self):
+        check = {"id": "no_duplicate_peers", "severity": "hard"}
+        output = {"peers": [{"name": "Microsoft"}, {"name": "Microsoft"}, {"name": "Samsung"}]}
+        result = run_grounding_check(check, output, {})
+        assert not result["passed"]
+        assert "microsoft" in result["details"].lower()
+
+    def test_empty_peers_passes(self):
+        check = {"id": "no_duplicate_peers", "severity": "hard"}
+        result = run_grounding_check(check, {"peers": []}, {})
+        assert result["passed"]
+
+
+class TestSubjectNotInPeers:
+    def test_subject_absent_passes(self):
+        check = {"id": "subject_not_in_peers", "severity": "hard"}
+        bundle = {"company": {"ticker": "AAPL", "name": "Apple Inc."}}
+        output = {"peers": [{"name": "Microsoft"}, {"name": "Alphabet"}]}
+        result = run_grounding_check(check, output, bundle)
+        assert result["passed"]
+
+    def test_ticker_in_peers_fails(self):
+        check = {"id": "subject_not_in_peers", "severity": "hard"}
+        bundle = {"company": {"ticker": "AAPL", "name": "Apple Inc."}}
+        output = {"peers": [{"name": "AAPL Inc."}, {"name": "Microsoft"}]}
+        result = run_grounding_check(check, output, bundle)
+        assert not result["passed"]
+
+    def test_name_in_peers_fails(self):
+        check = {"id": "subject_not_in_peers", "severity": "hard"}
+        bundle = {"company": {"ticker": "AAPL", "name": "apple inc."}}
+        output = {"peers": [{"name": "Apple Inc."}, {"name": "Samsung"}]}
+        result = run_grounding_check(check, output, bundle)
+        assert not result["passed"]
+
+
+class TestCommentaryLength:
+    def test_subject_commentary_passes(self):
+        check = {"id": "subject_scores_commentary_length", "severity": "hard"}
+        output = {"subject_scores": {"commentary": "x" * 100}}
+        result = run_grounding_check(check, output, {})
+        assert result["passed"]
+
+    def test_subject_commentary_too_short_fails(self):
+        check = {"id": "subject_scores_commentary_length", "severity": "hard"}
+        output = {"subject_scores": {"commentary": "short"}}
+        result = run_grounding_check(check, output, {})
+        assert not result["passed"]
+
+    def test_peer_commentary_all_pass(self):
+        check = {"id": "peer_commentary_length", "severity": "hard"}
+        output = {"peers": [{"name": "MSFT", "commentary": "x" * 150}]}
+        result = run_grounding_check(check, output, {})
+        assert result["passed"]
+
+    def test_peer_commentary_one_short_fails(self):
+        check = {"id": "peer_commentary_length", "severity": "hard"}
+        output = {"peers": [{"name": "MSFT", "commentary": "x" * 150}, {"name": "GOOGL", "commentary": "too short"}]}
+        result = run_grounding_check(check, output, {})
+        assert not result["passed"]
+
+    def test_subject_commentary_missing_fails(self):
+        check = {"id": "subject_scores_commentary_length", "severity": "hard"}
+        result = run_grounding_check(check, {"subject_scores": {}}, {})
+        assert not result["passed"]
+
+
+class TestSubjectVsPeersRelative:
+    def test_subject_well_above_peers_passes(self):
+        check = {"id": "subject_roic_vs_peers_check", "severity": "soft"}
+        output = {
+            "subject_scores": {"roic_persistence_0_to_5": 4},
+            "peers": [{"roic_persistence_0_to_5": 3}, {"roic_persistence_0_to_5": 3}],
+        }
+        result = run_grounding_check(check, output, {})
+        assert result["passed"]
+
+    def test_subject_far_below_peers_fails(self):
+        check = {"id": "subject_roic_vs_peers_check", "severity": "soft"}
+        output = {
+            "subject_scores": {"roic_persistence_0_to_5": 1},
+            "peers": [{"roic_persistence_0_to_5": 4}, {"roic_persistence_0_to_5": 5}],
+        }
+        result = run_grounding_check(check, output, {})
+        assert not result["passed"]
+
+    def test_missing_data_skipped(self):
+        check = {"id": "subject_roic_vs_peers_check", "severity": "soft"}
+        result = run_grounding_check(check, {}, {})
+        assert result["passed"]
+        assert "skipped" in result["details"].lower()
+
+
+class TestPeersIncludeIndustryCandidates:
+    def test_always_soft_pass(self):
+        check = {"id": "peers_include_industry_candidates", "severity": "hard"}
+        result = run_grounding_check(check, {}, {})
+        assert result["passed"]
+        assert result["severity"] == "soft"
 
 
 # --- run_all_grounding_checks ---

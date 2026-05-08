@@ -69,10 +69,21 @@ SPRINT_PROMPTS: dict[str, str] = {
         "quality, and transparency. Rate management 0-5 overall."
     ),
     "06_peers": (
-        "Compare the subject company against its top 3 peers on 7 standardized "
-        "criteria (moat, management, revenue_quality, pricing_power, balance_sheet, "
-        "growth, risk), each scored 0-5. Include brief commentary explaining the "
-        "relative positioning."
+        "Set subject to the company ticker (e.g. 'AAPL'). "
+        "subject_scores must include the 7 numeric fields PLUS a commentary string "
+        "(≥100 chars) summarizing the subject's overall competitive position. "
+        "Pick 3-4 named peers from prior_outputs.03_industry.peer_candidates. "
+        "Score the subject AND each peer on 7 criteria (pricing_power_0_to_5, "
+        "recurrence_0_to_5, roic_persistence_0_to_5, balance_sheet_0_to_5, "
+        "management_0_to_5, industry_positioning_0_to_5, valuation_flex_0_to_5), "
+        "each 0-5. "
+        "For the subject, anchor: roic_persistence_0_to_5 = round(quality_scores.roic_persistence × 5), "
+        "management_0_to_5 = round(four_ms.management.score × 5), "
+        "pricing_power_0_to_5 = round(quality_scores.pricing_power_score × 5). "
+        "Each peer must have a commentary field (≥100 chars) citing 1-2 decisive "
+        "competitive differences vs the subject. Scores must vary — avoid inflation "
+        "(all 4-5) and deflation (all 1-2). Peer scores are qualitative estimates; "
+        "acknowledge this limitation in subject_scores.commentary."
     ),
     "07_risks": (
         "Identify risks across six categories: concentration (customer/supplier), "
@@ -162,7 +173,7 @@ def parse_builder_response(raw: str) -> dict[str, Any] | None:
     cleaned = raw.strip()
     if cleaned.startswith("```"):
         lines = cleaned.split("\n")
-        lines = [l for l in lines if not l.strip().startswith("```")]
+        lines = [line for line in lines if not line.strip().startswith("```")]
         cleaned = "\n".join(lines)
 
     try:

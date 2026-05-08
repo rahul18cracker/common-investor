@@ -471,6 +471,213 @@ class TestROICSeries:
         # Assert: Should handle zero invested capital
         assert result[0]["roic"] is None
 
+    @patch("app.metrics.compute._fetch_cf_bs_for_roic")
+    def test_roic_suppressed_when_over_100_percent(self, mock_fetch):
+        """ROIC > 100% is a denominator artifact (near-zero inv_cap from negative equity).
+        It must be emitted as None so downstream averages/persistence ignore it."""
+        # SBUX-like scenario: deeply negative equity (-8B), large debt (14B), cash (3B)
+        # inv_cap = -8B + 14B - 3B = 3B (slightly positive)
+        # NOPAT = 1B * 0.79 = 0.79B  →  ROIC = 0.79 / 3 = 26%  -- fine
+        # Now shrink inv_cap further: equity=-12B, debt=14B, cash=1.5B → inv_cap=0.5B
+        # NOPAT = 1B * 0.79 = 0.79B  →  ROIC = 1.58 (158%) → must suppress
+        mock_fetch.return_value = [
+            {
+                "fy": 2023,
+                "ebit": 1_000_000_000,
+                "taxes": 210_000_000,
+                "debt": 14_000_000_000,
+                "equity": -12_000_000_000,
+                "cash": 1_500_000_000,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
+            }
+        ]
+
+        result = roic_series("0000928927")
+
+        # inv_cap = -12B + 14B - 1.5B = 0.5B (positive, so passes inv_cap>0 guard)
+        # ROIC = (1B * 0.79) / 0.5B = 1.58 → suppressed
+        assert result[0]["roic"] is None
+
+    @patch("app.metrics.compute._fetch_cf_bs_for_roic")
+    def test_roic_exactly_100_percent_not_suppressed(self, mock_fetch):
+        """ROIC exactly at 1.0 (100%) is the boundary — not suppressed (> not >=)."""
+        # NOPAT / inv_cap = exactly 1.0
+        # NOPAT = ebit * (1 - 0.21) = 79M, inv_cap = 79M
+        mock_fetch.return_value = [
+            {
+                "fy": 2023,
+                "ebit": 100_000_000,
+                "taxes": 21_000_000,
+                "debt": 50_000_000,
+                "equity": 30_000_000,
+                "cash": 1_000_000,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
+            }
+        ]
+
+        result = roic_series("0000928927")
+
+        # inv_cap = 30M + 50M - 1M = 79M; NOPAT = 100M * 0.79 = 79M → ROIC = 1.0 exactly
+        assert result[0]["roic"] == pytest.approx(1.0, rel=1e-4)
+
+    @patch("app.metrics.compute._fetch_cf_bs_for_roic")
+    def test_roic_suppression_preserves_valid_years(self, mock_fetch):
+        """Mixed series: artifact years become None, valid years pass through."""
+        mock_fetch.return_value = [
+            {  # Normal year — ROIC ~32%
+                "fy": 2021,
+                "ebit": 1_000_000_000,
+                "taxes": 210_000_000,
+                "debt": 14_000_000_000,
+                "equity": -8_000_000_000,
+                "cash": 3_000_000_000,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
+            },
+            {  # Artifact year — inv_cap near-zero → ROIC > 100%
+                "fy": 2022,
+                "ebit": 1_000_000_000,
+                "taxes": 210_000_000,
+                "debt": 14_000_000_000,
+                "equity": -12_000_000_000,
+                "cash": 1_500_000_000,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
+            },
+        ]
+
+        result = roic_series("0000928927")
+
+        assert result[0]["fy"] == 2021
+        assert result[0]["roic"] is not None
+        assert result[0]["roic"] == pytest.approx(0.263, rel=0.01)
+        assert result[1]["fy"] == 2022
+        assert result[1]["roic"] is None
+
+
+class TestROICSuppressedYears:
+    """Test roic_suppressed_years count function."""
+
+    @patch("app.metrics.compute._fetch_cf_bs_for_roic")
+    def test_zero_suppressed_for_healthy_company(self, mock_fetch):
+        from app.metrics.compute import roic_suppressed_years
+
+        mock_fetch.return_value = [
+            {
+                "fy": 2023,
+                "ebit": 100_000_000_000,
+                "taxes": 21_000_000_000,
+                "debt": 50_000_000_000,
+                "equity": 150_000_000_000,
+                "cash": 30_000_000_000,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
+            }
+        ]
+
+        assert roic_suppressed_years("0000789019") == 0
+
+    @patch("app.metrics.compute._fetch_cf_bs_for_roic")
+    def test_counts_artifact_years(self, mock_fetch):
+        from app.metrics.compute import roic_suppressed_years
+
+        mock_fetch.return_value = [
+            {  # Valid year
+                "fy": 2021,
+                "ebit": 1_000_000_000,
+                "taxes": 210_000_000,
+                "debt": 14_000_000_000,
+                "equity": -8_000_000_000,
+                "cash": 3_000_000_000,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
+            },
+            {  # Artifact year → ROIC > 100%
+                "fy": 2022,
+                "ebit": 1_000_000_000,
+                "taxes": 210_000_000,
+                "debt": 14_000_000_000,
+                "equity": -12_000_000_000,
+                "cash": 1_500_000_000,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
+            },
+            {  # Another artifact year
+                "fy": 2023,
+                "ebit": 1_000_000_000,
+                "taxes": 210_000_000,
+                "debt": 14_000_000_000,
+                "equity": -13_000_000_000,
+                "cash": 500_000_000,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
+            },
+        ]
+
+        assert roic_suppressed_years("0000928927") == 2
+
+    @patch("app.metrics.compute._fetch_cf_bs_for_roic")
+    def test_missing_data_rows_not_counted(self, mock_fetch):
+        from app.metrics.compute import roic_suppressed_years
+
+        mock_fetch.return_value = [
+            {  # Missing equity — skip
+                "fy": 2023,
+                "ebit": 1_000_000_000,
+                "taxes": None,
+                "debt": 14_000_000_000,
+                "equity": None,
+                "cash": 1_500_000_000,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
+            }
+        ]
+
+        assert roic_suppressed_years("0000928927") == 0
+
+    @patch("app.metrics.compute._fetch_cf_bs_for_roic")
+    def test_negative_inv_cap_not_counted(self, mock_fetch):
+        """Negative inv_cap rows are skipped entirely (existing BUG-3 guard), not counted."""
+        from app.metrics.compute import roic_suppressed_years
+
+        mock_fetch.return_value = [
+            {
+                "fy": 2023,
+                "ebit": 1_000_000_000,
+                "taxes": 210_000_000,
+                "debt": 2_000_000_000,
+                "equity": -10_000_000_000,
+                "cash": 1_000_000_000,
+                "cfo": None,
+                "capex": None,
+                "shares": None,
+                "revenue": None,
+            }
+        ]
+        # inv_cap = -10B + 2B - 1B = -9B → negative, skipped
+
+        assert roic_suppressed_years("0000928927") == 0
+
 
 class TestROICAverage:
     """Test average ROIC calculation."""

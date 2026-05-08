@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from app.nlp.research_agent.harness.evaluator import (
     build_llm_eval_prompt,
     check_cross_references,
@@ -299,7 +297,12 @@ class TestParseLLMEvalResponse:
         assert not result["pass"]
 
     def test_markdown_wrapped_response(self):
-        raw = '```json\n{"evidence_quality": {"score": 4, "notes": ""}, "completeness": {"score": 4, "notes": ""}, "consistency": {"score": 4, "notes": ""}, "red_flags": {"score": 4, "notes": ""}, "failures": []}\n```'
+        raw = (
+            '```json\n{"evidence_quality": {"score": 4, "notes": ""}, '
+            '"completeness": {"score": 4, "notes": ""}, '
+            '"consistency": {"score": 4, "notes": ""}, '
+            '"red_flags": {"score": 4, "notes": ""}, "failures": []}\n```'
+        )
         result = parse_llm_eval_response(raw, SAMPLE_CONTRACT)
         assert result["overall"] == 16
         assert result["pass"]
