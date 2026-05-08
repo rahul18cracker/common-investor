@@ -198,6 +198,140 @@ def _print_summary_table(rows: list[dict[str, Any]]) -> None:
     print("=" * 120)
 
 
+SPRINT_ORDER = [
+    "01_business_profile",
+    "02_unit_economics",
+    "03_industry",
+    "04_moat",
+    "05_management",
+    "06_peers",
+    "07_risks",
+    "08_thesis",
+]
+
+
+def _build_rich_json(
+    rows: list[dict[str, Any]],
+    manifests: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Build a rich JSON report with per-sprint breakdown and industry aggregates."""
+    ticker_details = []
+    sprint_aggregates: dict[str, dict[str, Any]] = {s: {"passed": 0, "degraded": 0, "data_incomplete": 0, "tainted": 0, "attempt3_count": 0, "eval_scores": []} for s in SPRINT_ORDER}
+    industry_aggregates: dict[str, dict[str, Any]] = {}
+
+    for row in rows:
+        ticker = row["ticker"]
+        industry = row["industry"]
+        manifest = manifests.get(ticker)
+
+        per_sprint = {}
+        if manifest:
+            for sprint_name in SPRINT_ORDER:
+                s = manifest.get("sprints", {}).get(sprint_name, {})
+                status = s.get("status", "not_run")
+                attempts = s.get("attempts", 0)
+                eval_score = s.get("eval_score")
+                model_routing = s.get("model_routing", {})
+                grounding = s.get("grounding_contradictions", 0)
+                cost = s.get("cost_usd", 0.0)
+                duration = s.get("duration_seconds", 0.0)
+
+                hit_attempt3 = attempts >= 3
+
+                per_sprint[sprint_name] = {
+                    "status": status,
+                    "attempts": attempts,
+                    "hit_attempt3": hit_attempt3,
+                    "eval_score": eval_score,
+                    "grounding_contradictions": grounding,
+                    "cost_usd": cost,
+                    "duration_seconds": duration,
+                    "model_routing": model_routing,
+                }
+
+                agg = sprint_aggregates[sprint_name]
+                if status == "passed":
+                    agg["passed"] += 1
+                    if eval_score is not None:
+                        agg["eval_scores"].append(eval_score)
+                elif status == "degraded":
+                    agg["degraded"] += 1
+                    if eval_score is not None:
+                        agg["eval_scores"].append(eval_score)
+                elif status == "data_incomplete":
+                    agg["data_incomplete"] += 1
+                elif status in ("tainted_blocked", "tainted_suspicious"):
+                    agg["tainted"] += 1
+                if hit_attempt3:
+                    agg["attempt3_count"] += 1
+
+        ticker_details.append({
+            "ticker": ticker,
+            "industry": industry,
+            "run_status": row.get("status"),
+            "total_cost_usd": row.get("total_cost"),
+            "duration_min": row.get("duration_min"),
+            "sprints_passed": row.get("sprints_passed"),
+            "sprints_degraded": row.get("sprints_degraded"),
+            "sprints_data_incomplete": row.get("sprints_data_incomplete"),
+            "evidence_quality_avg": row.get("evidence_quality_avg"),
+            "grounding_contradictions_total": row.get("grounding_contradictions"),
+            "per_sprint": per_sprint,
+        })
+
+        if industry not in industry_aggregates:
+            industry_aggregates[industry] = {
+                "tickers": [],
+                "total_cost_usd": 0.0,
+                "avg_passed": 0.0,
+                "avg_quality": 0.0,
+                "_passed_list": [],
+                "_quality_list": [],
+            }
+        ind = industry_aggregates[industry]
+        ind["tickers"].append(ticker)
+        ind["total_cost_usd"] = round(ind["total_cost_usd"] + (row.get("total_cost") or 0.0), 4)
+        if row.get("sprints_passed") is not None:
+            ind["_passed_list"].append(row["sprints_passed"])
+        if row.get("evidence_quality_avg") is not None:
+            ind["_quality_list"].append(row["evidence_quality_avg"])
+
+    # Finalise industry averages
+    for ind in industry_aggregates.values():
+        passed_list = ind.pop("_passed_list", [])
+        quality_list = ind.pop("_quality_list", [])
+        ind["avg_passed"] = round(sum(passed_list) / len(passed_list), 2) if passed_list else 0.0
+        ind["avg_quality"] = round(sum(quality_list) / len(quality_list), 2) if quality_list else 0.0
+
+    # Finalise sprint aggregates
+    total_tickers = len(rows)
+    sprint_summary = {}
+    for sprint_name, agg in sprint_aggregates.items():
+        scores = agg.pop("eval_scores", [])
+        active = agg["passed"] + agg["degraded"]
+        sprint_summary[sprint_name] = {
+            **agg,
+            "pass_rate": round(agg["passed"] / active, 2) if active else None,
+            "avg_eval_score": round(sum(scores) / len(scores), 1) if scores else None,
+            "attempt3_rate": round(agg["attempt3_count"] / total_tickers, 2) if total_tickers else 0.0,
+        }
+
+    total_cost = sum(r.get("total_cost") or 0.0 for r in rows)
+    completed = sum(1 for r in rows if r.get("status") == "completed")
+
+    return {
+        "meta": {
+            "total_tickers": total_tickers,
+            "completed": completed,
+            "total_cost_usd": round(total_cost, 4),
+            "avg_cost_usd": round(total_cost / total_tickers, 4) if total_tickers else 0.0,
+        },
+        "sprint_summary": sprint_summary,
+        "industry_aggregates": industry_aggregates,
+        "tickers": ticker_details,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Pilot calibration runner for qualitative agent harness")
     parser.add_argument(
@@ -212,6 +346,10 @@ def main():
     parser.add_argument(
         "--snapshot",
         action="store_true",
+    )
+    parser.add_argument(
+        "--json-output",
+        help="Path to write rich JSON report (default: state/pilot_report.json)",
     )
 
     args = parser.parse_args()
@@ -245,7 +383,9 @@ def main():
     print(f"\nState directory: {state_root}")
 
     rows = []
+    manifests: dict[str, Any] = {}
     csv_path = state_root / "pilot_metrics.csv"
+    json_output_path = Path(args.json_output) if args.json_output else state_root / "pilot_report.json"
 
     for ticker in args.tickers:
         print(f"\n{'=' * 60}")
@@ -283,6 +423,8 @@ def main():
             else:
                 row = _build_csv_row(ticker_upper, industry, manifest)
 
+            if manifest:
+                manifests[ticker_upper] = manifest
             rows.append(row)
 
             # Print per-ticker summary
@@ -313,6 +455,12 @@ def main():
     # Print final summary table
     _print_summary_table(rows)
     print(f"\nFinal CSV written to: {csv_path}")
+
+    # Write rich JSON report
+    rich_report = _build_rich_json(rows, manifests)
+    with json_output_path.open("w", encoding="utf-8") as f:
+        json.dump(rich_report, f, indent=2, default=str)
+    print(f"Rich JSON report written to: {json_output_path}")
 
 
 if __name__ == "__main__":
