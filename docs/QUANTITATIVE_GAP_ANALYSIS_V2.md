@@ -74,9 +74,9 @@ for depository banks". This is informational, not suppression. Full metric appli
 with SUPPRESS/Caution/Replace logic is deferred to Phase 2 valuation plugins, per the
 functional-spec-v5.md design: the agent researches industry context and makes its own judgment.
 
-### GAP-IND-3: Missing Industry-Specific XBRL Tags — Partially Pulled Forward
+### GAP-IND-3: Missing Industry-Specific XBRL Tags — ✅ Core Fixes Complete (PR #50)
 
-**Status:** Core standard-taxonomy fixes on branch `rahul/xbrl-tag-enrichment-phase1b`.
+**Status:** Core standard-taxonomy fixes merged via `rahul/xbrl-tag-enrichment-phase1b`.
 Full industry-specific taxonomy (FFO/AFFO for REITs, NII/NIM for banks, CET1) deferred to Phase 2.
 
 Phase 1B preflight (2026-05-08) across 25 companies revealed three fixable classes of gaps
@@ -103,7 +103,7 @@ Banks (NII, NIM, PCR, CET1), REITs (FFO, AFFO, NOI), SBC, goodwill/intangibles.
 Discovered during 25-company preflight run on 2026-05-08. Full details and fix plan:
 `docs/spec-ideas/XBRL-TAG-ENRICHMENT-SCOPE.md`.
 
-### GAP-XBRL-1: Stale Tag Wins the Race — In Progress (`rahul/xbrl-tag-enrichment-phase1b`)
+### GAP-XBRL-1: Stale Tag Wins the Race — ✅ FIXED (PR #50)
 
 **Affected companies:** MA (revenue, net_income), XOM (revenue, ebit), LMT (revenue, cogs, sga)
 
@@ -113,12 +113,14 @@ has stale entries through FY2021 — the company switched to `Revenues` after th
 stale tag wins the race and returns no recent data; `Revenues` (with FY2022–2025 data)
 is never reached.
 
-**Fix:** Require the winning tag to have at least one FY entry within the last 3 years
-(`max(fy) >= current_year - 3`). If stale, continue down the fallback list.
+**Fix (implemented):** Relative frontier algorithm in `_pick_first_units()` — scans all candidate
+tags, computes `frontier = max(max_fy)`, filters to tags within `FRONTIER_TOLERANCE=2` years of
+frontier, returns first survivor in priority order. Safer than absolute cutoff: handles
+acquired/delisted companies (all tags old → use best available) and self-adjusts as years pass.
 
-**Impact:** MA coverage ~75%+, XOM ~75%+, LMT ~87%+ after re-ingest.
+**Actual impact (2026-05-13):** MA 67%→75% (+2), XOM 67%→79% (+3), LMT 75%→88% (+3).
 
-### GAP-XBRL-2: Gross Profit Not Tagged but Computable — In Progress (`rahul/xbrl-tag-enrichment-phase1b`)
+### GAP-XBRL-2: Gross Profit Not Tagged but Computable — ✅ FIXED (PR #50)
 
 **Affected companies:** AMZN, NFLX, LLY
 
@@ -130,9 +132,9 @@ cogs=$356.4B — gross profit ($360.5B) is derivable but not tagged.
 fiscal year row where `gross_profit` is NULL but both `revenue` and `cogs` are populated.
 Follows the existing pattern of `_resolve_sga_sum()` and `_sum_annual_values()`.
 
-**Impact:** AMZN coverage ~71%+, NFLX ~83%+, LLY ~75%+ after re-ingest.
+**Actual impact (2026-05-13):** AMZN 67%→75% (+2), NFLX 79%→83% (+1), LLY 71%→83% (+3).
 
-### GAP-XBRL-3: Missing Utility/Energy-Specific Tags — In Progress (`rahul/xbrl-tag-enrichment-phase1b`)
+### GAP-XBRL-3: Missing Utility/Energy-Specific Tags — ✅ FIXED (PR #50)
 
 **Affected companies:** NEE (interest_expense), XOM (ebit)
 
@@ -140,8 +142,13 @@ NEE uses `InterestExpenseLongTermDebt` / `InterestCostsIncurred` — utility fin
 tags not in our `interest_expense` fallback list. XOM has no `OperatingIncomeLoss`
 tag; their P&L structure requires a pre-tax income proxy as a last-resort fallback.
 
-**Fix:** Extend `IS_TAGS` fallback lists with these tags near the end (lower priority
-than standard tags so they don't pollute standard company resolution).
+**Fix (implemented):** Extended `IS_TAGS` fallback lists — `ebit` gets pre-tax income proxy
+as last resort; `interest_expense` gets `InterestExpenseLongTermDebt`, `InterestCostsIncurred`,
+and `InterestPaidNet` (CF proxy, found empirically for NEE). All appended at end of lists.
+Also fixed: `upsert_filing` now returns existing id on conflict (DO UPDATE); ingest loop
+deletes before reinserting statement rows so re-ingest overwrites stale NULLs.
+
+**Actual impact (2026-05-13):** NEE 67%→71% (+1).
 
 ---
 
