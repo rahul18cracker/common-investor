@@ -8,8 +8,8 @@ per industry category. Claude commands read this to avoid false-positive anomali
 | Field             | Tech | Banks | REITs | Defense | Consumer | Energy | Utilities | Healthcare | SaaS |
 |-------------------|------|-------|-------|---------|----------|--------|-----------|------------|------|
 | revenue           | YES  | YES   | YES   | YES     | YES      | YES    | YES       | YES        | YES  |
-| cogs              | YES  | maybe | maybe | YES     | YES      | YES    | YES       | YES        | YES  |
-| gross_profit      | YES  | maybe | maybe | YES     | YES      | YES    | YES       | YES        | YES  |
+| cogs              | YES  | maybe | no*   | YES     | YES      | YES    | no*       | YES        | YES  |
+| gross_profit      | YES  | maybe | no*   | YES     | YES      | YES    | no*       | YES        | YES  |
 | sga               | YES  | YES   | YES   | YES     | YES      | YES    | YES       | YES        | YES  |
 | rnd               | YES  | no    | no    | YES     | maybe    | maybe  | no        | YES        | YES  |
 | depreciation      | YES  | YES   | YES   | YES     | YES      | YES    | YES       | YES        | YES  |
@@ -28,11 +28,15 @@ per industry category. Claude commands read this to avoid false-positive anomali
 | shareholder_equity| YES  | YES   | YES   | maybe*  | maybe*   | YES    | YES       | YES        | YES  |
 | cfo               | YES  | YES   | YES   | YES     | YES      | YES    | YES       | YES        | YES  |
 | capex             | YES  | YES   | YES   | YES     | YES      | YES    | YES       | YES        | YES  |
-| buybacks          | maybe| maybe | no    | maybe   | maybe    | maybe  | no        | maybe      | maybe|
+| buybacks          | maybe| maybe | no*   | maybe   | maybe    | maybe  | no*       | maybe      | maybe|
 | dividends         | maybe| YES   | YES   | YES     | YES      | YES    | YES       | YES        | no   |
-| acquisitions      | maybe| maybe | maybe | maybe   | maybe    | maybe  | maybe     | maybe      | maybe|
+| acquisitions      | maybe| maybe | maybe | maybe   | maybe    | maybe  | no*       | maybe      | maybe|
 
 *shareholder_equity: LMT, MCD, SBUX may have negative equity (expected, not a bug)
+*cogs/gross_profit REITs: O and similar REITs have fundamentally different IS structure — no COGS concept
+*cogs/gross_profit Utilities: NEE uses utility-specific cost taxonomy (fuel + purchased power), not standard COGS tags
+*buybacks REITs: legally required to distribute 90%+ of income as dividends — structural prohibition on buybacks
+*buybacks/acquisitions Utilities: capital deployment goes into regulated rate base, not traditional buybacks/M&A
 
 Legend: YES = expect populated, no = expect NULL, maybe = depends on company
 
@@ -75,3 +79,20 @@ These ranges are guidelines, not hard rules. Flag values outside 2x the range as
 
 *Consumer ROE: companies with negative equity (SBUX, MCD) return None — this is correct.
 FCF margin / cash conversion for banks, REITs, utilities: less meaningful due to business model.
+
+## Structural NULLs by Company (Phase 1B, updated 2026-05-12)
+
+These are correct NULLs — the concept does not exist in the business model.
+Do not flag these as data gaps or XBRL failures.
+
+| Ticker | Field(s) | Why NULL is correct |
+|--------|----------|---------------------|
+| MA | cogs, gross_profit | Payment network — no cost of goods. Mastercard operates a network, not a factory. No COGS line in their P&L. |
+| MCD | cogs, gross_profit | Franchise model — revenue is franchise fees + rent. No COGS concept; costs are "franchised restaurant costs" under a different taxonomy. |
+| NEE | cogs, gross_profit | Regulated utility — costs are fuel + purchased power under utility-specific XBRL tags, not standard COGS. Low analytical value to add. |
+| NEE | buybacks, acquisitions | Capital deployment goes into regulated rate base (grid/generation assets), not traditional buybacks or M&A. |
+| O | revenue, cogs, gross_profit, ebit, sga | REIT — income statement is fundamentally different. Revenue recognition changed post-2019. FFO/AFFO/NOI are the meaningful metrics, not revenue/COGS. |
+| O | buybacks | REITs must distribute 90%+ of income as dividends by law — structural prohibition on buybacks. |
+
+Note: For O (Realty Income), the agent_bundle industry_notes already warns the qualitative agent
+about REIT income structure. These NULLs are expected and should not trigger anomaly alerts.

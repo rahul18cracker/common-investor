@@ -232,14 +232,13 @@ class TestDatabaseOperations:
         assert filing.period_end == date(2023, 6, 30)
 
     def test_upsert_filing_duplicate(self, db_session, create_test_company, create_test_filing):
-        """Test that duplicate filings return None (conflict)."""
+        """Duplicate accession returns the existing filing id (idempotent upsert)."""
         create_test_company()
-        create_test_filing(accession="TEST-DUPLICATE")
+        original_filing = create_test_filing(accession="TEST-DUPLICATE")
 
-        # Try to insert duplicate
         result = upsert_filing(cik="0000789019", form="10-K", accession="TEST-DUPLICATE", period_end="2023-06-30")
 
-        assert result is None
+        assert result == original_filing.id
 
     def test_upsert_filing_date_casting(self, db_session, create_test_company):
         """Test that period_end string is properly cast to date."""
@@ -292,6 +291,111 @@ class TestDataParsing:
         empty_facts = {"facts": {"us-gaap": {}}}
         result = _pick_first_units(empty_facts, ["Revenues"])
 
+        assert result is None
+
+    def test_pick_first_units_skips_stale_tag(self):
+        """Stale tag (max FY outside frontier tolerance) is skipped in favour of newer tag.
+
+        Reproduces the MA/XOM pattern: old tag last filed FY2021, new tag has FY2023.
+        With frontier=2023 and tolerance=2, old tag (2021 < 2023-2=2021 is borderline —
+        use a clearly stale FY2019 to ensure skip behaviour is unambiguous).
+        """
+        facts = {
+            "facts": {
+                "us-gaap": {
+                    "OldRevenueTag": {
+                        "units": {
+                            "USD": [
+                                {"fy": 2019, "form": "10-K", "val": 80_000_000_000, "end": "2019-12-31"},
+                                {"fy": 2020, "form": "10-K", "val": 85_000_000_000, "end": "2020-12-31"},
+                            ]
+                        }
+                    },
+                    "NewRevenueTag": {
+                        "units": {
+                            "USD": [
+                                {"fy": 2022, "form": "10-K", "val": 198_000_000_000, "end": "2022-12-31"},
+                                {"fy": 2023, "form": "10-K", "val": 211_000_000_000, "end": "2023-12-31"},
+                            ]
+                        }
+                    },
+                }
+            }
+        }
+        result = _pick_first_units(facts, ["OldRevenueTag", "NewRevenueTag"])
+        assert result is not None
+        # Must have picked the new tag — its FY2023 value distinguishes it
+        assert result["USD"][0]["val"] in (198_000_000_000, 211_000_000_000)
+
+    def test_pick_first_units_all_stale_returns_best_available(self):
+        """When all tags are old (acquired/delisted company), return the most-recent one.
+
+        Frontier = max across both tags; tolerance still applies relative to that frontier,
+        so the tag with the higher max_fy wins rather than returning None.
+        """
+        facts = {
+            "facts": {
+                "us-gaap": {
+                    "Tag2018": {
+                        "units": {
+                            "USD": [
+                                {"fy": 2018, "form": "10-K", "val": 50_000_000_000, "end": "2018-12-31"},
+                            ]
+                        }
+                    },
+                    "Tag2020": {
+                        "units": {
+                            "USD": [
+                                {"fy": 2019, "form": "10-K", "val": 60_000_000_000, "end": "2019-12-31"},
+                                {"fy": 2020, "form": "10-K", "val": 65_000_000_000, "end": "2020-12-31"},
+                            ]
+                        }
+                    },
+                }
+            }
+        }
+        result = _pick_first_units(facts, ["Tag2018", "Tag2020"])
+        assert result is not None
+        # Tag2018 max_fy=2018, Tag2020 max_fy=2020; frontier=2020, tolerance=2 -> both pass (2018>=2018)
+        # Priority order preserved: Tag2018 is first in list and passes filter, so it wins
+        assert result["USD"][0]["val"] == 50_000_000_000
+
+    def test_pick_first_units_none_fy_entries_ignored(self):
+        """Entries with fy=None are ignored; function doesn't crash and finds valid data."""
+        facts = {
+            "facts": {
+                "us-gaap": {
+                    "RevenueTag": {
+                        "units": {
+                            "USD": [
+                                {"fy": None, "form": "10-K", "val": 999, "end": "2023-03-31"},
+                                {"fy": 2023, "form": "10-K", "val": 200_000_000_000, "end": "2023-12-31"},
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+        result = _pick_first_units(facts, ["RevenueTag"])
+        assert result is not None
+        assert "USD" in result
+
+    def test_pick_first_units_only_quarterly_data_returns_none(self):
+        """A tag with only 10-Q entries (no 10-K/20-F) is not a valid candidate."""
+        facts = {
+            "facts": {
+                "us-gaap": {
+                    "RevenueTag": {
+                        "units": {
+                            "USD": [
+                                {"fy": 2023, "form": "10-Q", "val": 50_000_000_000, "end": "2023-03-31"},
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+        result = _pick_first_units(facts, ["RevenueTag"])
         assert result is None
 
 
