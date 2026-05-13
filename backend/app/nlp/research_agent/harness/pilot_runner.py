@@ -216,7 +216,10 @@ def _build_rich_json(
 ) -> dict[str, Any]:
     """Build a rich JSON report with per-sprint breakdown and industry aggregates."""
     ticker_details = []
-    sprint_aggregates: dict[str, dict[str, Any]] = {s: {"passed": 0, "degraded": 0, "data_incomplete": 0, "tainted": 0, "attempt3_count": 0, "eval_scores": []} for s in SPRINT_ORDER}
+    sprint_aggregates: dict[str, dict[str, Any]] = {
+        s: {"passed": 0, "degraded": 0, "data_incomplete": 0, "tainted": 0, "attempt3_count": 0, "eval_scores": []}
+        for s in SPRINT_ORDER
+    }
     industry_aggregates: dict[str, dict[str, Any]] = {}
 
     for row in rows:
@@ -265,19 +268,21 @@ def _build_rich_json(
                 if hit_attempt3:
                     agg["attempt3_count"] += 1
 
-        ticker_details.append({
-            "ticker": ticker,
-            "industry": industry,
-            "run_status": row.get("status"),
-            "total_cost_usd": row.get("total_cost"),
-            "duration_min": row.get("duration_min"),
-            "sprints_passed": row.get("sprints_passed"),
-            "sprints_degraded": row.get("sprints_degraded"),
-            "sprints_data_incomplete": row.get("sprints_data_incomplete"),
-            "evidence_quality_avg": row.get("evidence_quality_avg"),
-            "grounding_contradictions_total": row.get("grounding_contradictions"),
-            "per_sprint": per_sprint,
-        })
+        ticker_details.append(
+            {
+                "ticker": ticker,
+                "industry": industry,
+                "run_status": row.get("status"),
+                "total_cost_usd": row.get("total_cost"),
+                "duration_min": row.get("duration_min"),
+                "sprints_passed": row.get("sprints_passed"),
+                "sprints_degraded": row.get("sprints_degraded"),
+                "sprints_data_incomplete": row.get("sprints_data_incomplete"),
+                "evidence_quality_avg": row.get("evidence_quality_avg"),
+                "grounding_contradictions_total": row.get("grounding_contradictions"),
+                "per_sprint": per_sprint,
+            }
+        )
 
         if industry not in industry_aggregates:
             industry_aggregates[industry] = {
