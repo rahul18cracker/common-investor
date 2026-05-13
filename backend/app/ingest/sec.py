@@ -490,7 +490,7 @@ def _insert_statement(filing_id: int, fy: int, stmt_type: str, units_cache: dict
         if stmt_type == "is" and values.get("gross_profit") is None:
             rev = values.get("revenue")
             cogs_val = values.get("cogs")
-            if rev is not None and cogs_val is not None:
+            if isinstance(rev, (int, float)) and isinstance(cogs_val, (int, float)):
                 values["gross_profit"] = rev - cogs_val
 
     # Build SQL dynamically
