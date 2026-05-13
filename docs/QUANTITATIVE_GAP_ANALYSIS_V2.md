@@ -74,11 +74,81 @@ for depository banks". This is informational, not suppression. Full metric appli
 with SUPPRESS/Caution/Replace logic is deferred to Phase 2 valuation plugins, per the
 functional-spec-v5.md design: the agent researches industry context and makes its own judgment.
 
-### GAP-IND-3: Missing Industry-Specific XBRL Tags — Deferred to Phase 2
+### GAP-IND-3: Missing Industry-Specific XBRL Tags — ✅ Core Fixes Complete (PR #50)
 
-Banks (Net Interest Income, Provision for Loan Losses), REITs (FFO, AFFO), and regulatory
-metrics (CET1 Ratio) require industry-specific XBRL taxonomy work. Documented in
-`.claude/memory/industry_expectations.md` so the agent knows what's missing.
+**Status:** Core standard-taxonomy fixes merged via `rahul/xbrl-tag-enrichment-phase1b`.
+Full industry-specific taxonomy (FFO/AFFO for REITs, NII/NIM for banks, CET1) deferred to Phase 2.
+
+Phase 1B preflight (2026-05-08) across 25 companies revealed three fixable classes of gaps
+and one structural class. See `docs/spec-ideas/XBRL-TAG-ENRICHMENT-SCOPE.md` for full details.
+
+**Fixes on branch:**
+- Tag recency filter in `_pick_first_units()` (MA, XOM, LMT revenue recovery)
+- Gross profit computation fallback: `revenue - cogs` when tag absent (AMZN, NFLX, LLY)
+- Additional fallback tags for `interest_expense` (NEE) and `ebit` (XOM)
+
+**Accepted structural NULLs (correct, not fixable):**
+- MA, MCD: no COGS concept — payment network / franchise model
+- NEE: utility fuel costs use non-standard taxonomy (`UtilitiesOperatingExpenseFuelAndPurchasedPower`)
+- O (REIT): income statement structure fundamentally different; FFO is the meaningful metric
+- O, NEE: no buybacks by design (REIT distribution requirement; utility capital deployment)
+
+**Still deferred to Phase 2:**
+Banks (NII, NIM, PCR, CET1), REITs (FFO, AFFO, NOI), SBC, goodwill/intangibles.
+
+---
+
+## 3b. XBRL Tag Resolution Gaps (Phase 1B findings)
+
+Discovered during 25-company preflight run on 2026-05-08. Full details and fix plan:
+`docs/spec-ideas/XBRL-TAG-ENRICHMENT-SCOPE.md`.
+
+### GAP-XBRL-1: Stale Tag Wins the Race — ✅ FIXED (PR #50)
+
+**Affected companies:** MA (revenue, net_income), XOM (revenue, ebit), LMT (revenue, cogs, sga)
+
+`_pick_first_units()` in `ingest/sec.py` returns the first tag in the fallback list that
+has *any* annual 10-K FY entry. For MA and XOM, `RevenueFromContractWithCustomerExcludingAssessedTax`
+has stale entries through FY2021 — the company switched to `Revenues` after that year. The
+stale tag wins the race and returns no recent data; `Revenues` (with FY2022–2025 data)
+is never reached.
+
+**Fix (implemented):** Relative frontier algorithm in `_pick_first_units()` — scans all candidate
+tags, computes `frontier = max(max_fy)`, filters to tags within `FRONTIER_TOLERANCE=2` years of
+frontier, returns first survivor in priority order. Safer than absolute cutoff: handles
+acquired/delisted companies (all tags old → use best available) and self-adjusts as years pass.
+
+**Actual impact (2026-05-13):** MA 67%→75% (+2), XOM 67%→79% (+3), LMT 75%→88% (+3).
+
+### GAP-XBRL-2: Gross Profit Not Tagged but Computable — ✅ FIXED (PR #50)
+
+**Affected companies:** AMZN, NFLX, LLY
+
+These companies report `revenue` and `cogs` in XBRL but do not tag a `GrossProfit` line —
+it doesn't appear as a distinct line item in their P&L. AMZN FY2025: revenue=$716.9B,
+cogs=$356.4B — gross profit ($360.5B) is derivable but not tagged.
+
+**Fix:** After the tag-resolution pass, compute `gross_profit = revenue - cogs` for any
+fiscal year row where `gross_profit` is NULL but both `revenue` and `cogs` are populated.
+Follows the existing pattern of `_resolve_sga_sum()` and `_sum_annual_values()`.
+
+**Actual impact (2026-05-13):** AMZN 67%→75% (+2), NFLX 79%→83% (+1), LLY 71%→83% (+3).
+
+### GAP-XBRL-3: Missing Utility/Energy-Specific Tags — ✅ FIXED (PR #50)
+
+**Affected companies:** NEE (interest_expense), XOM (ebit)
+
+NEE uses `InterestExpenseLongTermDebt` / `InterestCostsIncurred` — utility financing
+tags not in our `interest_expense` fallback list. XOM has no `OperatingIncomeLoss`
+tag; their P&L structure requires a pre-tax income proxy as a last-resort fallback.
+
+**Fix (implemented):** Extended `IS_TAGS` fallback lists — `ebit` gets pre-tax income proxy
+as last resort; `interest_expense` gets `InterestExpenseLongTermDebt`, `InterestCostsIncurred`,
+and `InterestPaidNet` (CF proxy, found empirically for NEE). All appended at end of lists.
+Also fixed: `upsert_filing` now returns existing id on conflict (DO UPDATE); ingest loop
+deletes before reinserting statement rows so re-ingest overwrites stale NULLs.
+
+**Actual impact (2026-05-13):** NEE 67%→71% (+1).
 
 ---
 

@@ -98,12 +98,20 @@ IS_TAGS = {
         "OperatingIncomeLoss",
         "OperatingIncome",
         "IncomeLossFromContinuingOperationsBeforeInterestAndTaxes",
+        # Last-resort proxy: pre-tax income — may include non-operating items (e.g. XOM commodity swings)
+        "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
     ],
     "interest_expense": [
         "InterestExpense",
         "InterestAndDebtExpense",
         "InterestExpenseDebt",
         "InterestIncomeExpenseNet",
+        # Utility/long-term debt fallbacks — LT interest only, understates if significant ST borrowings
+        "InterestExpenseLongTermDebt",
+        # Total interest incurred before capitalization — may overstate for capital builders (NEE, energy)
+        "InterestCostsIncurred",
+        # Cash-flow proxy: interest paid — approximates IS interest expense when no IS tag exists (NEE)
+        "InterestPaidNet",
     ],
     "taxes": [
         "IncomeTaxExpenseBenefit",
@@ -308,19 +316,20 @@ def upsert_company(
     )
 
 
-def upsert_filing(cik: str, form: str | None, accession: str | None, period_end: str | None):
+def upsert_filing(cik: str, form: str | None, accession: str | None, period_end: str | None) -> int | None:
     # Convert date objects to ISO format strings for SQLite compatibility
     from datetime import date
 
     if isinstance(period_end, date):
         period_end = period_end.isoformat()
 
-    # For SQLite, skip CAST and just insert as string (SQLite doesn't enforce types)
     row = execute(
         """
         INSERT INTO filing (cik, form, accession, period_end)
         VALUES (:cik, :form, :accession, :period_end)
-        ON CONFLICT (accession) DO NOTHING
+        ON CONFLICT (accession) DO UPDATE SET
+            form = EXCLUDED.form,
+            period_end = EXCLUDED.period_end
         RETURNING id
     """,
         cik=cik,
@@ -331,23 +340,65 @@ def upsert_filing(cik: str, form: str | None, accession: str | None, period_end:
     return int(row[0]) if row else None
 
 
-def _pick_first_units(facts: dict, tag_list: list[str]) -> dict | None:  # type: ignore[type-arg]
-    """Return units dict for the first tag that has 10-K/20-F annual data.
+# Maximum staleness tolerance relative to the most-recent tag's data.
+# A tag is accepted only if its most recent annual FY is within this many
+# years of the overall frontier. Keeps stale tags (e.g. MA's old revenue
+# tag, last filed FY2021) from blocking newer equivalents while still
+# returning data for acquired/delisted companies where all tags are old.
+_FRONTIER_TOLERANCE = 2
 
-    Previous behavior picked the first tag that merely existed, even if it
-    only contained quarterly data or data from old years. This caused NULLs
-    for companies that switched XBRL tags over time (e.g., MSFT moved from
-    CostOfRevenue to CostOfGoodsAndServicesSold).
+
+def _pick_first_units(facts: dict, tag_list: list[str]) -> dict | None:  # type: ignore[type-arg]
+    """Return units dict for the first tag with recent 10-K/20-F annual data.
+
+    Handles taxonomy changes where companies switch XBRL tags over time
+    (e.g. MA, XOM, LMT moved to a different revenue tag after FY2021).
+    The old tag still has historical 10-K entries, so a naive first-match
+    would return stale data and write NULLs for every year after the switch.
+
+    Algorithm:
+      1. Scan all tags; record (tag, units_dict, max_fy) for each with any
+         10-K/20-F annual entry. max_fy is the highest fiscal year present.
+      2. Compute frontier = max(max_fy across all candidates).
+      3. Filter: keep only candidates where max_fy >= frontier - tolerance.
+         This allows recently-switched tags to be skipped while preserving
+         data for acquired/delisted companies whose only tag is genuinely old.
+      4. Return the units dict of the first surviving candidate, preserving
+         tag_list priority order.
+
+    The returned dict may contain multiple unit keys (e.g. "USD" and
+    "USD/shares"). Callers use _annual_value() with a fixed unit key from
+    STATEMENT_SCHEMAS, so extra keys are safely ignored.
     """
     f = facts.get("facts", {}).get("us-gaap", {})
+
+    # Step 1: collect all candidates with their max annual FY
+    candidates: list[tuple[dict, int]] = []  # (units_dict, max_fy)
     for t in tag_list:
         if t not in f:
             continue
         units = f[t]["units"]
-        # Check if any unit key has at least one 10-K/20-F entry
-        for unit_key, entries in units.items():
-            if any(e.get("form") in ("10-K", "20-F") for e in entries):
-                return dict(units)
+        annual_fys = [
+            e["fy"]
+            for entries in units.values()
+            for e in entries
+            if e.get("form") in ("10-K", "20-F") and e.get("fy") is not None
+        ]
+        if not annual_fys:
+            continue
+        candidates.append((dict(units), max(annual_fys)))
+
+    if not candidates:
+        return None
+
+    # Step 2: frontier = most recent FY seen across all candidate tags
+    frontier = max(max_fy for _, max_fy in candidates)
+
+    # Step 3 & 4: return first candidate within tolerance of frontier
+    for units_dict, max_fy in candidates:
+        if max_fy >= frontier - _FRONTIER_TOLERANCE:
+            return units_dict
+
     return None
 
 
@@ -434,6 +485,14 @@ def _insert_statement(filing_id: int, fy: int, stmt_type: str, units_cache: dict
             if depr_units:
                 values["depreciation"] = _annual_value(depr_units, "USD", fy)
 
+        # gross_profit: compute from revenue - cogs when not filed as a tag
+        # (AMZN, NFLX, LLY don't tag GrossProfit as a separate line item)
+        if stmt_type == "is" and values.get("gross_profit") is None:
+            rev = values.get("revenue")
+            cogs_val = values.get("cogs")
+            if isinstance(rev, (int, float)) and isinstance(cogs_val, (int, float)):
+                values["gross_profit"] = rev - cogs_val
+
     # Build SQL dynamically
     field_names = ", ".join(["filing_id", "fy"] + fields)
     placeholders = ", ".join([f":{name}" for name in ["filing_id", "fy"] + fields])
@@ -516,6 +575,12 @@ def ingest_companyfacts_richer_by_ticker(ticker: str):
             accession=f"FACTS-{cik}-{fy}",
             period_end=f"{fy}-12-31",
         )
+        if filing_id is None:
+            log.warning("upsert_filing returned None for %s FY%s — skipping", ticker, fy)
+            continue
+        # Delete existing statement rows so re-ingest overwrites stale NULLs
+        for tbl in ("statement_is", "statement_bs", "statement_cf"):
+            execute(f"DELETE FROM {tbl} WHERE filing_id = :fid", fid=filing_id)  # nosec B608
         _insert_statement(filing_id, fy, "is", units_cache, facts=facts)
         _insert_statement(filing_id, fy, "bs", units_cache, facts=facts)
         _insert_statement(filing_id, fy, "cf", units_cache, facts=facts)
